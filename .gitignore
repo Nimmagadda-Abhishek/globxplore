@@ -1,0 +1,20 @@
+# Ignore local environment variables
+.env
+
+# Ignore dependency folders
+node_modules/
+vendor/
+
+# Ignore build outputs
+dist/
+build/
+*.exe
+*.o
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE settings
+.vscode/
+.idea/

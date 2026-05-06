@@ -1,0 +1,36 @@
+# WhatsApp Webhook Integration Plan
+
+The goal is to enable the WhatsApp Business API webhook by mounting the existing logic in the application and configuring the required environment variables.
+
+## User Review Required
+
+> [!IMPORTANT]
+> You will need a public HTTPS URL for Meta to verify your webhook. Since you are likely developing locally, I recommend using **ngrok** to create a secure tunnel to your local server.
+
+## Proposed Changes
+
+### Backend Integration
+
+#### [MODIFY] [app.js](file:///c:/Users/srini/Desktop/globxpoler/src/app.js)
+- Mount the WhatsApp webhook routes at `/api/webhooks/whatsapp`.
+- Note: This route must be public and excluded from any global authentication middleware (which it already is by being outside the `protect` middleware).
+
+#### [MODIFY] [.env](file:///c:/Users/srini/Desktop/globxpoler/.env)
+- Add `WHATSAPP_VERIFY_TOKEN`. This can be any string you choose (e.g., `globxplorer_secret_token_2024`). You will need to enter this same string in the Meta Developer Portal.
+
+## Verification Plan
+
+### Manual Verification
+1. **Start the server**: Run `npm run dev`.
+2. **Expose locally**: Run `ngrok http 3000` (assuming your server runs on port 3000).
+3. **Configure Meta**:
+   - Go to your WhatsApp Business App in the [Meta Developers Portal](https://developers.facebook.com/).
+   - Navigate to **WhatsApp > Configuration**.
+   - Click **Edit** in the Webhooks section.
+   - **Callback URL**: `https://<your-ngrok-url>/api/webhooks/whatsapp`
+   - **Verify Token**: The string you set in `.env` (e.g., `globxplorer_secret_token_2024`).
+   - Click **Verify and Save**.
+4. **Subscribe to fields**:
+   - After verification, click **Manage** in the Webhooks section.
+   - Subscribe to `messages`.
+5. **Test**: Send a WhatsApp message to your test number and check the server console for "Incoming WhatsApp Webhook".
