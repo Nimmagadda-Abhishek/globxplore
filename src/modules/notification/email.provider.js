@@ -2,14 +2,23 @@ const nodemailer = require('nodemailer');
 
 class EmailProvider {
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.mailtrap.io',
-      port: process.env.EMAIL_PORT || 2525,
+    const config = {
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-    });
+    };
+
+    // If using Gmail, use the 'service' property for better compatibility
+    if (process.env.EMAIL_HOST === 'smtp.gmail.com') {
+      delete config.host;
+      delete config.port;
+      config.service = 'gmail';
+    }
+
+    this.transporter = nodemailer.createTransport(config);
   }
 
   async sendEmail({ to, subject, html, attachments = [] }) {

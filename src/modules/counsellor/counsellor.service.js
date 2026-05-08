@@ -71,7 +71,21 @@ exports.updateStage = async (studentId, stage, comment, userId) => {
 
   await student.save();
   
-  // TODO: Send WhatsApp update to student
+  // Send WhatsApp update to student
+  try {
+    const notificationService = require('../notification/service');
+    await notificationService.triggerNotification({
+      userId: student.userId,
+      eventKey: 'APPLICATION_STAGE_CHANGED',
+      data: {
+        name: student.name,
+        stage: stage
+      },
+      channels: ['app', 'whatsapp', 'email']
+    });
+  } catch (err) {
+    console.error('Failed to send stage update notification:', err.message);
+  }
   
   return student;
 };

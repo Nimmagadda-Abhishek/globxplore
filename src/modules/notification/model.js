@@ -57,6 +57,10 @@ const notificationSchema = new mongoose.Schema({
   sentAt: Date,
   deliveredAt: Date,
   failedAt: Date,
+  whatsappMessageId: {
+    type: String,
+    index: true,
+  },
 }, {
   timestamps: true,
 });

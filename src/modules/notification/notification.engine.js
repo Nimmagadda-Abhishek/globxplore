@@ -77,12 +77,15 @@ class NotificationEngine {
 
       case 'whatsapp':
         // If it's a template-based notification
-        if (notification.metadata && notification.metadata.templateName) {
+        const templateName = notification.metadata?.get ? notification.metadata.get('templateName') : notification.metadata?.templateName;
+        const components = notification.metadata?.get ? notification.metadata.get('components') : notification.metadata?.components;
+
+        if (templateName) {
           return await WhatsAppProvider.sendTemplate(
             user.phone,
-            notification.metadata.templateName,
+            templateName,
             user.language || 'en',
-            notification.metadata.components || []
+            components || []
           );
         } else {
           return await WhatsAppProvider.sendMessage(user.phone, notification.message);
@@ -95,8 +98,11 @@ class NotificationEngine {
 
   getHtmlContent(notification) {
     // Check if we have a template function
-    if (notification.metadata && notification.metadata.eventKey && templates[notification.metadata.eventKey]) {
-      return templates[notification.metadata.eventKey].email(notification.metadata);
+    const eventKey = notification.metadata?.get ? notification.metadata.get('eventKey') : notification.metadata?.eventKey;
+    if (eventKey && templates[eventKey]) {
+      // Convert Map to plain object for template interpolation if needed
+      const data = notification.metadata?.get ? Object.fromEntries(notification.metadata) : notification.metadata;
+      return templates[eventKey].email(data);
     }
     return `<p>${notification.message}</p>`;
   }
@@ -104,6 +110,16 @@ class NotificationEngine {
   async updateNotificationStatus(notification, results) {
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
+
+    // Extract WhatsApp message ID if present
+    const whatsappResult = results.find(r => r.channel === 'whatsapp' && r.success && r.data);
+    if (whatsappResult && whatsappResult.data && whatsappResult.data.messages && whatsappResult.data.messages[0]) {
+      if (notification.metadata?.set) {
+        notification.whatsappMessageId = whatsappResult.data.messages[0].id;
+      } else {
+        notification.whatsappMessageId = whatsappResult.data.messages[0].id;
+      }
+    }
 
     if (successCount > 0) {
       notification.status = 'sent';

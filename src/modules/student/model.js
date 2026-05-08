@@ -35,6 +35,11 @@ const studentSchema = new mongoose.Schema({
     type: String,
     enum: ['required', 'not_required', 'already_applied', 'In Progress'],
   },
+  universityType: {
+    type: String,
+    enum: ['Public', 'Private'],
+    default: 'Private',
+  },
 
   pipelineStage: {
     type: String,
@@ -118,9 +123,9 @@ const studentSchema = new mongoose.Schema({
 
   documents: [
     {
-      name: String,
-      url: String,
-      type: String,
+      name: { type: String },
+      url: { type: String },
+      type: { type: String },
       category: {
         type: String,
         enum: [
@@ -178,13 +183,15 @@ const studentSchema = new mongoose.Schema({
 
   messages: [
     {
-      senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-      senderName: String,
-      senderRole: String, // E.g., 'COUNSELLOR' or 'STUDENT'
-      content: String,
-      timestamp: { type: Date, default: Date.now }
+      sender: { type: String, enum: ['agent', 'student'], default: 'agent' },
+      agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      text: String,
+      mediaUrl: String,
+      timestamp: { type: Date, default: Date.now },
+      status: { type: String, enum: ['sent', 'delivered', 'read', 'received'], default: 'sent' }
     }
   ],
+  lastMessageAt: Date,
   payments: [
     {
       title: String,

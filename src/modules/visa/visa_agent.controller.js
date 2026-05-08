@@ -2,6 +2,7 @@ const authService = require('../auth/service');
 const VisaProcess = require('./model');
 const User = require('../user/model');
 const paymentService = require('../payment/service');
+const notificationService = require('../notification/service');
 
 /**
  * Visa Agent Login
@@ -282,7 +283,22 @@ exports.updateDS160Status = async (req, res, next) => {
     const { status } = req.body; // pending, submitted
     const ds160Status = status === 'submitted' ? 'Submitted' : 'Pending';
     const stage = status === 'submitted' ? 'ds160_submitted' : 'ds160_pending';
-    const client = await VisaProcess.findByIdAndUpdate(req.params.id, { ds160Status, stage }, { new: true });
+    const client = await VisaProcess.findByIdAndUpdate(req.params.id, { ds160Status, stage }, { new: true }).populate('linkedUser');
+    
+    // Trigger notification
+    if (client.linkedUser) {
+      notificationService.triggerNotification({
+        userId: client.linkedUser._id,
+        eventKey: 'VISA_STAGE_UPDATE',
+        data: {
+          name: client.linkedUser.name,
+          country: client.country,
+          stage: ds160Status === 'Submitted' ? 'DS-160 Submitted' : 'DS-160 Pending'
+        },
+        channels: ['app', 'whatsapp']
+      }).catch(console.error);
+    }
+
     res.status(200).json({ success: true, data: client });
   } catch (error) {
     next(error);
@@ -704,8 +720,94 @@ exports.markAsDone = async (req, res, next) => {
         lastStatusUpdateAt: new Date()
       },
       { new: true }
-    );
+    ).populate('linkedUser');
+
+    // Trigger notification
+    if (client.linkedUser) {
+      notificationService.triggerNotification({
+        userId: client.linkedUser._id,
+        eventKey: 'VISA_STAGE_UPDATE',
+        data: {
+          name: client.linkedUser.name,
+          country: client.country,
+          stage: 'Approved/Completed'
+        },
+        channels: ['app', 'whatsapp']
+      }).catch(console.error);
+    }
+
     res.status(200).json({ success: true, message: 'Process marked as completed manually', data: client });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const WhatsAppProvider = require('../../providers/WhatsAppProvider');
+
+/**
+ * Add a message to the visa client's chat log.
+ */
+exports.addMessage = async (req, res, next) => {
+  try {
+    const { text, content, message, agentId } = req.body;
+    const finalContent = text || content || message;
+    const io = req.app.get('io');
+
+    if (!finalContent) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    const client = await VisaProcess.findById(req.params.id).populate('linkedUser');
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Visa process not found' });
+    }
+
+    // 1. Push new message object
+    const newMessage = { 
+      sender: 'agent', 
+      agentId: agentId || req.user._id, 
+      text: finalContent, 
+      timestamp: new Date(), 
+      status: 'sent' 
+    };
+    client.messages.push(newMessage);
+    client.lastMessageAt = new Date();
+
+    // 2. Check 24h session window
+    const lastClientMsg = [...client.messages].reverse().find(m => m.sender === 'student');
+    const isWindowOpen = lastClientMsg && (new Date() - new Date(lastClientMsg.timestamp)) < 24 * 60 * 60 * 1000;
+
+    // 3. Trigger WhatsApp notification for the client
+    if (client.linkedUser && client.linkedUser.phone) {
+      try {
+        const waPhone = WhatsAppProvider.normalizePhone(client.linkedUser.phone);
+        if (isWindowOpen) {
+          await WhatsAppProvider.sendRawNotification(waPhone, finalContent);
+        } else {
+          // Send Template to open session
+          await WhatsAppProvider.sendChatAlertTemplate(
+            waPhone,
+            client.linkedUser.name,
+            `${process.env.PORTAL_URL || 'https://gxcrm.com'}/client/dashboard`
+          );
+        }
+      } catch (err) {
+        console.error('Failed to send WhatsApp message to visa client:', err.message);
+      }
+    }
+
+    await client.save();
+
+    // 4. Emit Socket.io event
+    if (io) {
+      io.to(`student_${client._id}`).emit('new_message', { 
+        sender: 'agent', 
+        text: finalContent, 
+        timestamp: newMessage.timestamp 
+      });
+    }
+
+    res.status(201).json({ success: true, data: client });
   } catch (error) {
     next(error);
   }

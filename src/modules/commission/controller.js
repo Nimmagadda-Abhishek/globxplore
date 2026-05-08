@@ -27,7 +27,10 @@ exports.setCommissionRate = async (req, res, next) => {
 exports.getMyCommissions = async (req, res, next) => {
   try {
     const agentId = req.user._id;
+    const Student = require('../student/model');
+    const CommissionService = require('./service');
 
+    // 1. Get aggregation of earnings by country
     const aggregation = await CommissionLog.aggregate([
       { $match: { agentId: new mongoose.Types.ObjectId(agentId) } },
       { 
@@ -39,7 +42,24 @@ exports.getMyCommissions = async (req, res, next) => {
       }
     ]);
 
-    res.status(200).json({ success: true, data: aggregation });
+    // 2. Get current tier and enrollment count
+    const enrollmentCount = await Student.countDocuments({
+      $or: [{ assignedAgent: agentId }, { sourceAgent: agentId }, { createdBy: agentId }],
+      pipelineStage: 'Enrolled'
+    });
+    const tier = CommissionService.getAgentTier(enrollmentCount);
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        summary: aggregation,
+        stats: {
+          enrollmentCount,
+          tierName: tier.name,
+          tierLabel: tier.label
+        }
+      } 
+    });
   } catch (error) {
     next(error);
   }

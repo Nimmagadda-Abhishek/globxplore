@@ -20,6 +20,7 @@ router.patch('/preferences', notificationController.updatePreferences);
 // Admin routes
 router.post('/admin/broadcast', authorize('ADMIN'), notificationController.broadcast);
 router.get('/admin/analytics', authorize('ADMIN'), notificationController.getAnalytics);
+router.get('/admin/whatsapp-logs', authorize('ADMIN'), notificationController.getWhatsAppLogs);
 
 // Internal trigger (could be protected by a secret)
 router.post('/internal/trigger', notificationController.triggerInternal);

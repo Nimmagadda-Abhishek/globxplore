@@ -85,19 +85,30 @@ const visaProcessSchema = new mongoose.Schema({
   manualStatus: { type: String, enum: ['Pending', 'Done'], default: 'Pending' }, // Added for manual override
   mandatoryDocs: [
     {
-      name: String, // Biometric and interview mandated (10 max)
-      url: String,
-      category: String,
+      name: { type: String }, 
+      url: { type: String },
+      category: { type: String },
       uploadedAt: { type: Date, default: Date.now },
     }
   ],
   slotConfirmationDocs: [
     {
-      name: String,
-      url: String,
+      name: { type: String },
+      url: { type: String },
       uploadedAt: { type: Date, default: Date.now }
     }
   ],
+  messages: [
+    {
+      sender: { type: String, enum: ['agent', 'student'], default: 'agent' },
+      agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      text: String,
+      mediaUrl: String,
+      timestamp: { type: Date, default: Date.now },
+      status: { type: String, enum: ['sent', 'delivered', 'read', 'received'], default: 'sent' }
+    }
+  ],
+  lastMessageAt: Date,
   notes: [
     {
       content: String,

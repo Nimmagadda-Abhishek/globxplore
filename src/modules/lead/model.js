@@ -32,8 +32,8 @@ const leadSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['Paper Leads', 'Digital Marketing', 'Walk-ins', 'Direct Referrals', 'Other'],
-    default: 'Digital Marketing',
+    enum: ['Website', 'Facebook Ads', 'Google Ads', 'Instagram', 'LinkedIn', 'Referral', 'Walk-in', 'Other'],
+    default: 'Website',
   },
   status: {
     type: String,

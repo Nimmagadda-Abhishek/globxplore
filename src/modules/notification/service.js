@@ -17,6 +17,49 @@ exports.triggerNotification = async ({ userId, eventKey, data, channels = ['app'
     const title = template.title;
     const message = interpolate(template.message, data);
 
+    // Create WhatsApp components if template uses them
+    const components = [];
+    if (template.whatsapp) {
+      // Simple heuristic: most templates use body parameters
+      // We can improve this by defining a mapping in the template definition
+      const parameters = [];
+      
+      // Match all {{var}} in the message
+      const matches = template.message.match(/{{(\w+)}}/g);
+      if (matches) {
+        matches.forEach(match => {
+          const key = match.replace(/{{|}}/g, '');
+          if (data[key]) {
+            parameters.push({ type: 'text', text: String(data[key]) });
+          }
+        });
+      }
+
+      if (parameters.length > 0) {
+        components.push({
+          type: 'body',
+          parameters
+        });
+      }
+
+      // 2. Header Parameter (Required since you added Image Headers to Meta templates)
+      const headerImage = data.imageUrl || data.image || process.env.DEFAULT_HEADER_IMAGE;
+      
+      if (headerImage) {
+        components.push({
+          type: 'header',
+          parameters: [
+            {
+              type: 'image',
+              image: {
+                link: headerImage
+              }
+            }
+          ]
+        });
+      }
+    }
+
     // Create notification record
     const notification = await Notification.create({
       userId,
@@ -25,7 +68,7 @@ exports.triggerNotification = async ({ userId, eventKey, data, channels = ['app'
       message,
       type: this.getEventType(eventKey),
       channels,
-      metadata: { ...data, eventKey, templateName: template.whatsapp },
+      metadata: { ...data, eventKey, templateName: template.whatsapp, components },
       status: 'queued',
     });
 

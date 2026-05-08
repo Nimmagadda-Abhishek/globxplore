@@ -15,19 +15,16 @@ const templates = {
     email: (data) => `<h1>Application Update</h1><p>Hi ${data.name}, your application status has been updated to <strong>${data.stage}</strong>.</p>`,
   },
   PROMOTION_SUCCESS: {
-    title: 'Welcome to GlobXplorer!',
-    message: 'Hi {{name}}, welcome! Your login ID is {{gxId}} and password is {{password}}. Please login and change your password.',
-    whatsapp: 'gx_promotion_success',
+    title: 'Account Activated',
+    message: 'Your GlobXplorer account is now active. Please check your registered email for login details and instructions.',
+    whatsapp: 'gx_account_ready',
     email: (data) => `
       <h1>Welcome to GlobXplorer!</h1>
       <p>Hi ${data.name},</p>
-      <p>Congratulations! Your lead account has been promoted to a Student account.</p>
-      <p><strong>Your Login Credentials:</strong></p>
-      <ul>
-        <li><strong>User ID:</strong> ${data.gxId}</li>
-        <li><strong>Temporary Password:</strong> ${data.password}</li>
-      </ul>
-      <p>Please login at <a href="https://gxcrm.com/login">gxcrm.com/login</a> and change your password immediately.</p>
+      <p>Your student account has been created successfully.</p>
+      <p><strong>Login ID:</strong> ${data.gxId}</p>
+      <p><strong>Temporary Password:</strong> ${data.password}</p>
+      <p>Login here: <a href="https://gxcrm.com">gxcrm.com</a></p>
     `,
   },
   PAYMENT_PENDING: {
@@ -60,11 +57,59 @@ const templates = {
     whatsapp: 'gx_interview_scheduled',
     email: (data) => `<h1>Interview Scheduled</h1><p>Hi ${data.name}, an interview is scheduled for ${data.date} at ${data.time}.</p>`,
   },
+  VISA_CLIENT_CREDENTIALS: {
+    title: 'Visa Portal Credentials',
+    message: 'Your Visa portal access is now ready. Please check your registered email for login details and instructions.',
+    whatsapp: 'gx_visa_ready',
+    email: (data) => `
+      <h1>Visa Portal Access Ready</h1>
+      <p>Hi ${data.name},</p>
+      <p>Your Visa portal account has been created. Use the credentials below to track your application.</p>
+      <p><strong>Login ID:</strong> ${data.gxId}</p>
+      <p><strong>Temporary Password:</strong> ${data.password}</p>
+    `,
+  },
   VISA_RESULT: {
     title: 'Visa Result Update',
     message: 'Your visa application result is out: {{result}}',
     whatsapp: 'gx_visa_result',
     email: (data) => `<h1>Visa Result</h1><p>Your visa application result: <strong>${data.result}</strong></p>`,
+  },
+  VISA_STAGE_UPDATE: {
+    title: 'Visa Application Update',
+    message: 'Hi {{name}}, your visa application for {{country}} is now at the {{stage}} stage.',
+    whatsapp: 'gx_visa_update',
+    email: (data) => `<h1>Visa Update</h1><p>Hi ${data.name}, your visa application for ${data.country} has moved to: <strong>${data.stage}</strong>.</p>`,
+  },
+  DOCUMENT_VERIFIED: {
+    title: 'Document Verified',
+    message: 'Hi {{name}}, your {{category}} has been verified successfully.',
+    whatsapp: 'gx_doc_verified',
+    email: (data) => `<h1>Document Approved</h1><p>Your <strong>${data.category}</strong> has been verified.</p>`,
+  },
+  DOCUMENT_REJECTED: {
+    title: 'Document Rejected',
+    message: 'Hi {{name}}, your {{category}} was rejected. Reason: {{reason}}. Please re-upload.',
+    whatsapp: 'gx_doc_rejected',
+    email: (data) => `<h1>Document Action Required</h1><p>Your ${data.category} was rejected due to: ${data.reason}. Please upload a clear copy.</p>`,
+  },
+  OFFER_LETTER_RECEIVED: {
+    title: 'Offer Letter Update',
+    message: 'An offer letter has been issued for {{name}} from {{university}}.',
+    whatsapp: 'gx_offer_received',
+    email: (data) => `<h1>Offer Letter Update</h1><p>An offer letter from <strong>${data.university}</strong> has been received for ${data.name}.</p>`,
+  },
+  APPLICATION_SUBMITTED: {
+    title: 'Application Submitted',
+    message: 'Hi {{name}}, your application to {{university}} has been submitted successfully.',
+    whatsapp: 'gx_app_submitted',
+    email: (data) => `<h1>Application Sent</h1><p>Your application to ${data.university} has been submitted.</p>`,
+  },
+  GENERIC_CHAT_ALERT: {
+    title: 'New Message Notification',
+    message: 'Notification: You have a new message from {{senderName}} regarding your application. View: {{link}}',
+    whatsapp: 'gx_chat_alert_v2',
+    email: (data) => `<h1>New Message</h1><p>You have a new message from ${data.senderName}.</p><a href="${data.link}">View Message</a>`,
   },
 
   // --- Admin / Manager Events ---

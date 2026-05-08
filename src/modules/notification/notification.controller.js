@@ -93,10 +93,37 @@ exports.broadcast = async (req, res, next) => {
 
 exports.triggerInternal = async (req, res, next) => {
   try {
-    // Secret verification could be added here
     const { userId, eventKey, data, channels } = req.body;
     const notification = await notificationService.triggerNotification({ userId, eventKey, data, channels });
     res.status(201).json({ status: 'success', data: { notification } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getWhatsAppLogs = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    
+    const logs = await Notification.find({ channels: 'whatsapp' })
+      .populate('userId', 'name phone email')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const total = await Notification.countDocuments({ channels: 'whatsapp' });
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        logs,
+        pagination: {
+          total,
+          page: Number(page),
+          pages: Math.ceil(total / limit),
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }

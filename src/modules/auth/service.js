@@ -74,8 +74,28 @@ exports.loginUser = async (identifier, password) => {
   const accessToken = this.generateToken(user._id, 'access');
   const refreshToken = this.generateToken(user._id, 'refresh');
 
+  const isFirstLogin = !user.lastLogin;
   user.lastLogin = new Date();
   await user.save();
+
+  // If first time login, send WhatsApp reminder to change password
+  if (isFirstLogin) {
+    try {
+      const notificationService = require('../notification/service');
+      await notificationService.sendRawNotification({
+        userId: user._id,
+        title: 'Security Reminder: Change Your Password',
+        message: `Hi ${user.name}, welcome to GlobXplorer! For your security, please change your temporary password from the profile settings.`,
+        channels: ['app', 'whatsapp'],
+        metadata: {
+          event: 'first_login',
+          gxId: user.gxId
+        }
+      });
+    } catch (err) {
+      console.error('Failed to send first-login WhatsApp reminder:', err.message);
+    }
+  }
 
   // Create attendance session for staff roles
   const staffRoles = ['ADMIN', 'AGENT_MANAGER', 'AGENT', 'TELECALLER', 'COUNSELLOR', 'VISA_AGENT', 'ALUMNI_MANAGER'];
@@ -109,6 +129,7 @@ exports.loginUser = async (identifier, password) => {
       role: user.role,
       email: user.email,
       mustChangePassword: user.mustChangePassword,
+      isFirstLogin,
     },
     accessToken,
     refreshToken,

@@ -1,4 +1,5 @@
 const Student = require('../student/model');
+const notificationService = require('../notification/service');
 
 /**
  * List all students with filters.
@@ -81,6 +82,21 @@ exports.updateStudentStage = async (req, res, next) => {
     student.stageHistory.push({ stage, timestamp: new Date(), durationMs: 0 });
     
     await student.save();
+
+    // Trigger WhatsApp notification for stage update
+    try {
+      await notificationService.triggerNotification({
+        userId: student.userId,
+        eventKey: 'APPLICATION_STAGE_CHANGED',
+        data: {
+          name: student.name,
+          stage: stage
+        },
+        channels: ['app', 'whatsapp', 'email']
+      });
+    } catch (err) {
+      console.error('Failed to send stage update notification:', err.message);
+    }
 
     res.status(200).json({
       success: true,

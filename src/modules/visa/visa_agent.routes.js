@@ -62,6 +62,7 @@ router.patch('/clients/:id/interview-screening', visaAgentController.updateInter
 
 // Final Decision APIs
 router.patch('/clients/:id/result', visaAgentController.updateResult);
+router.post('/clients/:id/message', visaAgentController.addMessage);
 
 // Reminder APIs
 router.get('/reminders', (req, res) => res.json({ success: true, data: [] })); // Placeholder for reminder service

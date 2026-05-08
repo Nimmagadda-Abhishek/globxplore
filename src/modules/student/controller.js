@@ -2,6 +2,7 @@ const Student = require('./model');
 const User = require('../user/model');
 const { generateGxId } = require('../../utils/gxIdGenerator');
 const crypto = require('crypto');
+const notificationService = require('../notification/service');
 
 /**
  * Convert a Lead to a Student or create a new student entry.
@@ -76,6 +77,61 @@ exports.updateStage = async (req, res, next) => {
 
     await student.save();
 
+    // Trigger WhatsApp notification for stage update
+    try {
+      await notificationService.triggerNotification({
+        userId: student.userId,
+        eventKey: 'APPLICATION_STAGE_CHANGED',
+        data: {
+          name: student.name,
+          stage: stage
+        },
+        channels: ['app', 'whatsapp', 'email']
+      });
+    } catch (err) {
+      console.error('Failed to send stage update notification:', err.message);
+    }
+
+    // Trigger Commission Logging if stage is 'Enrolled'
+    if (stage === 'Enrolled') {
+      try {
+        const CommissionService = require('../commission/service');
+        const agentId = student.assignedAgent || student.sourceAgent || student.createdBy;
+        
+        if (agentId) {
+          const result = await CommissionService.calculateCommissionForAgent(
+            agentId,
+            student.interestedCountry || 'Other',
+            student.universityType === 'Public'
+          );
+
+          // 1. Log current student commission (Base + Tier Bonus)
+          if (result.totalThisStudent > 0) {
+            await CommissionService.logCommission(
+              agentId,
+              student._id,
+              student.interestedCountry || 'Other',
+              result.totalThisStudent
+            );
+          }
+
+          // 2. Log retroactive bonus if Elite tier just reached
+          if (result.retroactiveBonus > 0) {
+            await CommissionService.logCommission(
+              agentId,
+              student._id, // Linked to the 31st student for reference
+              'Elite Bonus (Retroactive)',
+              result.retroactiveBonus
+            );
+          }
+          
+          console.log(`[Commission] Logged ₹${result.totalThisStudent} (${result.tier} tier) for agent ${agentId}.`);
+        }
+      } catch (err) {
+        console.error('Failed to log commission:', err.message);
+      }
+    }
+
     res.status(200).json({ success: true, data: student });
   } catch (error) {
     next(error);
@@ -98,60 +154,101 @@ exports.uploadDocument = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // Permission check for students: can only upload to their own profile
+    // Permission check for students
     if (req.user.role === 'STUDENT' && student.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to upload documents to this profile' });
+      return res.status(403).json({ success: false, message: 'You are not authorized' });
     }
 
     // Map visibility "Public" to "Student" to match schema enum
     const dbVisibility = visibility === 'Public' ? 'Student' : (visibility || 'Office');
 
+    // Normalize category to lowercase to match schema enum
+    const category = (type || 'other').toLowerCase();
+
     const newDoc = { 
       name: name || (req.file ? req.file.originalname : 'Document'), 
       url, 
       type: req.file ? req.file.mimetype : 'unknown', 
-      category: type || 'other', // Map request "type" to schema "category"
+      category: category, 
       visibility: dbVisibility,
       uploadedAt: new Date() 
     };
 
-    const updatedStudent = await Student.findByIdAndUpdate(
-      req.params.id,
-      { $push: { documents: newDoc } },
-      { new: true, runValidators: true }
-    );
+    // Add to documents array
+    student.documents.push(newDoc);
+    await student.save();
 
     res.status(200).json({
       success: true,
       message: 'Document uploaded successfully',
-      data: updatedStudent.documents[updatedStudent.documents.length - 1],
+      data: student.documents[student.documents.length - 1],
     });
   } catch (error) {
     next(error);
   }
 };
 
+const WhatsAppProvider = require('../../providers/WhatsAppProvider');
+
 /**
  * Add a message to the student's chat log.
  */
 exports.addMessage = async (req, res, next) => {
   try {
-    const { content } = req.body;
-    const student = await Student.findById(req.params.id);
+    const { text, content, message, agentId } = req.body;
+    const finalContent = text || content || message;
+    const io = req.app.get('io');
 
+    if (!finalContent) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    const student = await Student.findById(req.params.id);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    student.messages.push({
-      senderId: req.user._id,
-      senderName: req.user.name,
-      senderRole: req.user.role,
-      content,
-      timestamp: new Date()
-    });
+    // 1. Push new message object
+    const newMessage = { 
+      sender: 'agent', 
+      agentId: agentId || req.user._id, 
+      text: finalContent, 
+      timestamp: new Date(), 
+      status: 'sent' 
+    };
+    student.messages.push(newMessage);
+    student.lastMessageAt = new Date();
+
+    // 2. Check 24h session window
+    const lastStudentMsg = [...student.messages].reverse().find(m => m.sender === 'student');
+    const isWindowOpen = lastStudentMsg && (new Date() - new Date(lastStudentMsg.timestamp)) < 24 * 60 * 60 * 1000;
+
+    // 3. Send via WhatsApp
+    try {
+      const waPhone = WhatsAppProvider.normalizePhone(student.phone);
+      if (isWindowOpen) {
+        await WhatsAppProvider.sendRawNotification(waPhone, finalContent);
+      } else {
+        await WhatsAppProvider.sendChatAlertTemplate(
+          waPhone, 
+          student.name, 
+          `${process.env.PORTAL_URL || 'https://gxcrm.com'}/student/messages`
+        );
+      }
+    } catch (err) {
+      console.error('WhatsApp Delivery Failed:', err.message);
+    }
 
     await student.save();
+
+    // 4. Emit Socket.io event
+    if (io) {
+      io.to(`student_${student._id}`).emit('new_message', { 
+        sender: 'agent', 
+        text: finalContent, 
+        timestamp: newMessage.timestamp 
+      });
+    }
 
     res.status(201).json({ success: true, data: student });
   } catch (error) {

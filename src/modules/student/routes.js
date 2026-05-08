@@ -37,7 +37,7 @@ router.put('/:id', protect, authorize('COUNSELLOR'), requireConfirmedAgent, staf
 router.patch('/:id/stage', protect, authorize('ADMIN', 'AGENT_MANAGER', 'AGENT', 'COUNSELLOR'), requireConfirmedAgent, staffController.updateStage);
 router.post('/:id/document', protect, authorize('ADMIN', 'AGENT_MANAGER', 'AGENT', 'COUNSELLOR', 'VISA_AGENT', 'STUDENT'), requireConfirmedAgent, upload.single('file'), validate(documentSchema), staffController.uploadDocument);
 router.post('/:id/payment', protect, authorize('ADMIN', 'COUNSELLOR'), requireConfirmedAgent, staffController.addPaymentRequest);
-router.post('/:id/message', protect, authorize('ADMIN', 'AGENT_MANAGER', 'COUNSELLOR', 'STUDENT'), requireConfirmedAgent, staffController.addMessage);
+router.post('/:id/message', protect, authorize('ADMIN', 'AGENT_MANAGER', 'COUNSELLOR', 'VISA_AGENT', 'STUDENT'), requireConfirmedAgent, staffController.addMessage);
 router.delete('/:id', protect, authorize('ADMIN'), staffController.deleteStudent);
 
 

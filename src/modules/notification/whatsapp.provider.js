@@ -10,13 +10,33 @@ class WhatsAppProvider {
   }
 
   /**
+   * Normalize phone number to E.164 format (removing +, spaces, etc.)
+   */
+  normalizePhone(phone) {
+    if (!phone) return '';
+    // Remove all non-numeric characters
+    let cleaned = phone.toString().replace(/\D/g, '');
+    
+    // Ensure it doesn't have leading 00
+    if (cleaned.startsWith('00')) cleaned = cleaned.substring(2);
+    
+    // If it's 10 digits, prepend 91 (default for India)
+    if (cleaned.length === 10) {
+      cleaned = '91' + cleaned;
+    }
+    
+    return cleaned;
+  }
+
+  /**
    * Send a template-based WhatsApp message
    */
   async sendTemplate(to, templateName, language = 'en', components = []) {
     try {
+      const normalizedTo = this.normalizePhone(to);
       if (!this.accessToken) {
         console.warn('WhatsApp Access Token not configured. Logging message instead.');
-        console.log(`[WHATSAPP MOCK] To: ${to}, Template: ${templateName}, Language: ${language}`);
+        console.log(`[WHATSAPP MOCK] To: ${normalizedTo}, Template: ${templateName}, Language: ${language}`);
         return { success: true, mock: true };
       }
 
@@ -24,7 +44,7 @@ class WhatsAppProvider {
         this.apiUrl,
         {
           messaging_product: 'whatsapp',
-          to,
+          to: normalizedTo,
           type: 'template',
           template: {
             name: templateName,
@@ -42,10 +62,12 @@ class WhatsAppProvider {
         }
       );
 
+      console.log(`WhatsApp template (${templateName}) sent successfully to ${normalizedTo}. Message ID: ${response.data.messages?.[0]?.id}`);
       return { success: true, data: response.data };
     } catch (error) {
-      console.error('WhatsApp Provider Error:', error.response?.data || error.message);
-      return { success: false, error: error.response?.data || error.message };
+      const errorData = error.response?.data || error.message;
+      console.error('WhatsApp Provider Error (Template):', JSON.stringify(errorData, null, 2));
+      return { success: false, error: errorData };
     }
   }
 
@@ -54,9 +76,10 @@ class WhatsAppProvider {
    */
   async sendMessage(to, text) {
     try {
+      const normalizedTo = this.normalizePhone(to);
       if (!this.accessToken) {
         console.warn('WhatsApp Access Token not configured. Logging message instead.');
-        console.log(`[WHATSAPP MOCK] To: ${to}, Text: ${text}`);
+        console.log(`[WHATSAPP MOCK] To: ${normalizedTo}, Text: ${text}`);
         return { success: true, mock: true };
       }
 
@@ -64,7 +87,7 @@ class WhatsAppProvider {
         this.apiUrl,
         {
           messaging_product: 'whatsapp',
-          to,
+          to: normalizedTo,
           type: 'text',
           text: { body: text },
         },
@@ -76,10 +99,12 @@ class WhatsAppProvider {
         }
       );
 
+      console.log(`WhatsApp text message sent successfully to ${normalizedTo}. Message ID: ${response.data.messages?.[0]?.id}`);
       return { success: true, data: response.data };
     } catch (error) {
-      console.error('WhatsApp Provider Error:', error.response?.data || error.message);
-      return { success: false, error: error.response?.data || error.message };
+      const errorData = error.response?.data || error.message;
+      console.error('WhatsApp Provider Error (Text):', JSON.stringify(errorData, null, 2));
+      return { success: false, error: errorData };
     }
   }
 }

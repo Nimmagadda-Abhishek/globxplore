@@ -26,6 +26,18 @@ router.get('/leads', authorize('ADMIN', 'COUNSELLOR'), leadsController.getLeads)
 router.get('/leads/analytics', authorize('ADMIN', 'COUNSELLOR'), leadsController.getLeadAnalytics);
 router.get('/leads/:id', authorize('ADMIN', 'COUNSELLOR'), leadsController.getLeadById);
 
+// 4. Attendance & Productivity APIs (Admin-facing, but allowed for Counsellors for performance viewing)
+router.get('/attendance', authorize('ADMIN', 'COUNSELLOR'), activityController.getAttendance);
+router.get('/attendance/:userId', authorize('ADMIN', 'COUNSELLOR'), activityController.getUserAttendance);
+router.get('/performance', authorize('ADMIN', 'COUNSELLOR'), activityController.getPerformance);
+
+// 6. Student APIs (Allowed for ADMIN and COUNSELLOR)
+router.get('/students', authorize('ADMIN', 'COUNSELLOR'), studentsController.getStudents);
+router.get('/students/pipeline', authorize('ADMIN', 'COUNSELLOR'), studentsController.getStudentPipeline);
+router.get('/students/intake-stats', authorize('ADMIN', 'COUNSELLOR'), studentsController.getIntakeStats);
+router.get('/students/:id', authorize('ADMIN', 'COUNSELLOR'), studentsController.getStudentById);
+router.patch('/students/:id/stage', authorize('ADMIN', 'COUNSELLOR'), studentsController.updateStudentStage);
+
 // Everything else below is ADMIN only
 router.use(authorize('ADMIN'));
 
@@ -49,17 +61,6 @@ router.put('/users/:id', usersController.updateUser);
 router.patch('/users/:id/status', usersController.updateUserStatus);
 router.post('/users/:id/reset-password', usersController.resetUserPassword);
 
-// 4. Attendance & Productivity APIs
-router.get('/attendance', activityController.getAttendance);
-router.get('/attendance/:userId', activityController.getUserAttendance);
-router.get('/performance', activityController.getPerformance);
-
-// 6. Student APIs
-router.get('/students', studentsController.getStudents);
-router.get('/students/pipeline', studentsController.getStudentPipeline);
-router.get('/students/intake-stats', studentsController.getIntakeStats);
-router.get('/students/:id', studentsController.getStudentById);
-router.patch('/students/:id/stage', studentsController.updateStudentStage);
 
 // Student Registration Approval
 router.get('/pending-registrations', studentPortalController.getPendingRegistrations);

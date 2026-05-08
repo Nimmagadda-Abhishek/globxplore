@@ -24,11 +24,19 @@ const io = new Server(server, {
 
 const { initNotificationScheduler } = require('./modules/notification/notification.scheduler');
 
+const socketHandler = require('./socket');
+
+// Set io instance in app for controllers
+app.set('io', io);
+
 // Initialize Notification Socket logic
 initNotificationSocket(io);
 
 // Initialize Alumni Chat real-time socket
 initAlumniChatSocket(io);
+
+// Initialize Smart Hybrid Chat logic
+socketHandler(io);
 
 // Initialize Scheduled Jobs
 initNotificationScheduler();

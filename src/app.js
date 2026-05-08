@@ -40,7 +40,7 @@ app.use('/api/commission', require('./modules/commission/routes'));
 app.use('/api/offer', require('./modules/offer/routes'));
 app.use('/api/webinar', require('./modules/webinar/routes'));
 app.use('/api/notifications', require('./modules/notification/notification.routes'));
-app.use('/api/webhooks/whatsapp', require('./modules/notification/webhook.routes'));
+app.use('/api/webhooks', require('./modules/webhooks/webhook.routes'));
 app.use('/api/admin', require('./modules/admin/admin.routes'));
 app.use('/api/counsellor', require('./modules/counsellor/counsellor.routes'));
 app.use('/api/am', require('./modules/am/routes'));
