@@ -10,11 +10,11 @@ async function seedAdmin() {
 
     const adminData = {
       gxId: 'GXAD73291673',
-      name: 'Abhishek',
-      email: 'admin@globxplorer.com',
-      phone: '1234567890',
+      name: 'Nagaraju',
+      email: 'nagamaninfo@gmail.com',
+      phone: '8328226265',
       role: 'ADMIN',
-      password: 'adminpassword123',
+      password: 'MooN@2026',
       isActive: true
     };
 

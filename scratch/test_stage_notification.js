@@ -9,7 +9,7 @@ async function testStageUpdateNotification() {
     const studentController = require(path.resolve(__dirname, '../src/modules/student/controller'));
     
     // Mock req, res, next
-    const student = await Student.findOne({ phone: /7995936112$/ });
+    const student = await Student.findOne({ phone: /8008349568$/ });
     if (!student) {
       console.log('Test student not found');
       process.exit(1);
