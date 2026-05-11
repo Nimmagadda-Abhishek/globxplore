@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  APP_DIR: /home/${{ secrets.EC2_USER }}/globxpoler
+  APP_DIR: /home/ubuntu/globxplore
   APP_NAME: globx-crm
   NODE_VERSION: '18'
 
@@ -68,7 +68,7 @@ jobs:
             echo "──────────────────────────────────"
 
             # ── Navigate to app directory ──
-            cd /home/${{ secrets.EC2_USER }}/globxpoler
+            cd /home/ubuntu/globxplore
 
             # ── Pull latest code ──
             echo "📦 Pulling latest code..."
