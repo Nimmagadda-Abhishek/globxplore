@@ -95,12 +95,27 @@ jobs:
 
             pm2 save
 
-            # ── Health check ──
+            # ── Health check with detailed diagnostics ──
             echo "🏥 Running health check..."
-            sleep 5
-            pm2 show globxplore-backend | grep -q "online" \
-              && echo "✅ App is online" \
-              || (echo "❌ App failed to start" && exit 1)
+            sleep 8
+            
+            echo "📊 PM2 Status:"
+            pm2 list
+            
+            echo ""
+            echo "📋 App Details:"
+            pm2 show globxplore-backend
+            
+            echo ""
+            if pm2 show globxplore-backend | grep -q "online"; then
+              echo "✅ App is online"
+            else
+              echo "❌ App failed to start"
+              echo ""
+              echo "📝 Recent PM2 logs (last 30 lines):"
+              pm2 logs globxplore-backend --lines 30 --nostream
+              exit 1
+            fi
 
             echo "✅ Deployment complete: $(date)"
 
