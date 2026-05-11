@@ -8,7 +8,7 @@ on:
 
 env:
   APP_DIR: /home/ubuntu/globxplore
-  APP_NAME: globx-crm
+  APP_NAME: globxplore-backend
   NODE_VERSION: '18'
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run Tests
         run: |
@@ -63,6 +63,10 @@ jobs:
           script: |
             set -e
 
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            export PATH="$PATH:/usr/local/bin:/usr/bin"
+
             echo "──────────────────────────────────"
             echo "🚀 Starting deployment: $(date)"
             echo "──────────────────────────────────"
@@ -77,17 +81,14 @@ jobs:
 
             # ── Install dependencies ──
             echo "📥 Installing dependencies..."
-            npm ci --omit=dev
-
-            # ── Run DB migrations (if applicable) ──
-            # npm run migrate --if-present
+            npm install --omit=dev
 
             # ── Reload/start app with PM2 ──
             echo "🔄 Restarting application..."
-            if pm2 list | grep -q "globx-crm"; then
-              pm2 reload globx-crm --update-env
+            if pm2 list | grep -q "globxplore-backend"; then
+              pm2 reload globxplore-backend --update-env
             else
-              pm2 start src/server.js --name "globx-crm" \
+              pm2 start src/server.js --name "globxplore-backend" \
                 --max-memory-restart 300M \
                 --restart-delay 3000
             fi
@@ -97,7 +98,7 @@ jobs:
             # ── Health check ──
             echo "🏥 Running health check..."
             sleep 5
-            pm2 show globx-crm | grep -q "online" \
+            pm2 show globxplore-backend | grep -q "online" \
               && echo "✅ App is online" \
               || (echo "❌ App failed to start" && exit 1)
 
@@ -116,7 +117,7 @@ jobs:
         run: |
           echo "✅ Deployment succeeded!"
           # curl -X POST -H 'Content-type: application/json' \
-          #   --data '{"text":"✅ globx-crm deployed successfully!"}' \
+          #   --data '{"text":"✅ globxplore-backend deployed successfully!"}' \
           #   ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Notify Failure
@@ -124,5 +125,5 @@ jobs:
         run: |
           echo "❌ Deployment failed!"
           # curl -X POST -H 'Content-type: application/json' \
-          #   --data '{"text":"❌ globx-crm deployment FAILED!"}' \
+          #   --data '{"text":"❌ globxplore-backend deployment FAILED!"}' \
           #   ${{ secrets.SLACK_WEBHOOK_URL }}
