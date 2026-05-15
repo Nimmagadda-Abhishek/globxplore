@@ -10,7 +10,7 @@ const { documentSchema } = require('./validation');
 
 // --- STUDENT PORTAL ROUTES (Student Facing) ---
 router.post('/register', studentPortalController.register);
-router.post('/login', studentPortalController.login);
+
 
 // Protected Student Routes
 router.get('/me', protect, authorize('STUDENT'), studentPortalController.getMe);

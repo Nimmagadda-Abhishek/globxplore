@@ -6,7 +6,7 @@ const { authorize, requireConfirmedAgent } = require('../../middleware/role');
 const upload = require('../../middleware/upload');
 
 // 1. Authentication APIs
-router.post('/login', agentController.login);
+
 router.post('/logout', protect, authorize('AGENT'), agentController.logout);
 router.get('/me', protect, authorize('AGENT'), agentController.getMe);
 

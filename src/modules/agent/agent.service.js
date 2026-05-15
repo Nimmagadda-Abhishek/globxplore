@@ -8,13 +8,6 @@ const authService = require('../auth/service');
 const { generateGxId } = require('../../utils/gxIdGenerator');
 
 // 1. Authentication
-exports.login = async (gxId, password) => {
-  const result = await authService.loginUser(gxId, password);
-  if (result.user.role !== 'AGENT') {
-    throw new Error('Unauthorized access');
-  }
-  return result;
-};
 
 exports.getMe = async (userId) => {
   const user = await User.findById(userId);

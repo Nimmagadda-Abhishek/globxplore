@@ -99,3 +99,54 @@ exports.changePassword = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Handle forgot password request.
+ */
+exports.forgotPassword = async (req, res, next) => {
+  try {
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Please provide your GX ID or email' });
+    }
+
+    const data = await authService.generateForgotPasswordOtp(identifier);
+    res.status(200).json({ success: true, ...data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Verify OTP.
+ */
+exports.verifyOtp = async (req, res, next) => {
+  try {
+    const { identifier, otp } = req.body;
+    if (!identifier || !otp) {
+      return res.status(400).json({ success: false, message: 'Identifier and OTP are required' });
+    }
+
+    const data = await authService.verifyForgotPasswordOtp(identifier, otp);
+    res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reset password with OTP.
+ */
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const { identifier, otp, newPassword } = req.body;
+    if (!identifier || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Identifier, OTP, and new password are required' });
+    }
+
+    const data = await authService.resetPasswordWithOtp(identifier, otp, newPassword);
+    res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};

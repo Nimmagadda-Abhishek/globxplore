@@ -6,23 +6,6 @@ const User = require('../user/model');
  * Visa Client Login
  * @route POST /api/client/login
  */
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    if (!gxId || !password) {
-      return res.status(400).json({ success: false, message: 'GX ID and password are required' });
-    }
-
-    const loginData = await authService.loginUser(gxId, password);
-    if (loginData.user.role !== 'VISA_CLIENT') {
-      return res.status(403).json({ success: false, message: 'Access denied: not a Visa Client' });
-    }
-
-    res.status(200).json({ success: true, data: loginData });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Get Client Profile

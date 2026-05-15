@@ -5,7 +5,7 @@ const { protect } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/role');
 
 // Public routes
-router.post('/login', alumniController.login);
+
 router.post('/register', alumniController.register);
 router.get('/services/public', protect, authorize('STUDENT', 'ADMIN'), alumniController.getAllPublicServices);
 router.post('/services/:id/book', protect, authorize('STUDENT'), alumniController.bookService);

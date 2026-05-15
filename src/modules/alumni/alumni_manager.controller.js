@@ -15,21 +15,6 @@ const notificationService = require('../notification/service');
 
 // --- 1. Authentication APIs ---
 
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    if (!gxId || !password) return res.status(400).json({ success: false, message: 'GX ID and password required' });
-
-    const loginData = await authService.loginUser(gxId, password);
-    if (loginData.user.role !== 'ALUMNI_MANAGER' && loginData.user.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied: not an Alumni Manager' });
-    }
-
-    res.status(200).json({ success: true, data: loginData });
-  } catch (error) {
-    next(error);
-  }
-};
 
 exports.getMe = async (req, res, next) => {
   try {

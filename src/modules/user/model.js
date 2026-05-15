@@ -91,6 +91,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  resetPasswordOtp: {
+    type: String,
+  },
+  resetPasswordOtpExpires: {
+    type: Date,
+  },
   alumniDetails: {
     currentWorkingRole: { type: String },
     livingLocation: { type: String },

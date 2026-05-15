@@ -7,7 +7,7 @@ const upload = require('../../middleware/upload');
 
 // Public routes
 router.post('/register', studentController.register);
-router.post('/login', studentController.login);
+
 
 // Protected routes (Student only)
 router.use(protect);

@@ -5,7 +5,7 @@ const { protect } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/role');
 
 // Public routes
-router.post('/login', alumniController.login);
+
 
 // Protected routes
 router.use(protect);

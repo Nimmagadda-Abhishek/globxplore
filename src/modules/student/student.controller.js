@@ -16,15 +16,6 @@ exports.register = async (req, res, next) => {
 /**
  * Student: Login
  */
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    const data = await authService.loginUser(gxId, password);
-    res.status(200).json({ success: true, message: 'Login successful', data });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Student: Get profile (me)

@@ -1,45 +1,20 @@
-const mongoose = require('mongoose');
 require('dotenv').config();
-const User = require('../src/modules/user/model');
-const Notification = require('../src/modules/notification/model');
-const notificationService = require('../src/modules/notification/service');
+const WhatsAppProvider = require('../src/modules/notification/whatsapp.provider');
 
 async function testWhatsApp() {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('Connected to DB');
+  console.log('Testing WhatsApp Notification...');
+  console.log('Config:', {
+    phoneId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    token: process.env.WHATSAPP_ACCESS_TOKEN ? 'Present (length: ' + process.env.WHATSAPP_ACCESS_TOKEN.length + ')' : 'Missing'
+  });
 
-        const admin = await User.findOne({ role: 'ADMIN' });
-        if (!admin) {
-            console.error('No ADMIN user found');
-            return;
-        }
+  const result = await WhatsAppProvider.sendMessage('8328226265', 'Test WhatsApp message from GlobXplorer system.');
 
-        console.log(`Found Admin: ${admin.name} (${admin.phone})`);
-
-        // Trigger a notification specifically for WhatsApp
-        const notification = await notificationService.triggerNotification({
-            userId: admin._id,
-            eventKey: 'SYSTEM_ALERT',
-            data: { message: 'WhatsApp Test at ' + new Date().toISOString() },
-            channels: ['whatsapp']
-        });
-
-        console.log('WhatsApp Notification triggered:', notification._id);
-
-        // Wait a bit for processing
-        await new Promise(r => setTimeout(r, 2000));
-
-        // Check status
-        const updated = await Notification.findById(notification._id);
-        console.log('Status after 2s:', updated.status);
-        console.log('Results:', updated.metadata);
-        
-        process.exit(0);
-    } catch (err) {
-        console.error('Error:', err);
-        process.exit(1);
-    }
+  if (result.success) {
+    console.log('✅ WhatsApp sent successfully!', result.data);
+  } else {
+    console.error('❌ WhatsApp sending failed:', result.error);
+  }
 }
 
-testWhatsApp();
+testWhatsApp().catch(console.error);

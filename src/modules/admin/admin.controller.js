@@ -9,37 +9,6 @@ const VisaProcess = require('../visa/model');
  * Login admin using GX ID.
  * @route POST /api/admin/login
  */
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-
-    if (!gxId || !password) {
-      return res.status(400).json({ success: false, message: 'GX ID and password are required' });
-    }
-
-    const data = await authService.loginUser(gxId, password);
-
-    // Ensure user has admin role
-    if (data.user.role.toUpperCase() !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied. Admin role required.' });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: {
-          gxId: data.user.gxId,
-          name: data.user.name
-        }
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Logout current admin session.

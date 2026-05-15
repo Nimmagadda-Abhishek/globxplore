@@ -71,3 +71,63 @@ exports.getAlumniManagers = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get an Alumni Manager by ID.
+ * @route GET /api/admin/alumni-managers/:id
+ */
+exports.getAlumniManagerById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user || user.role !== 'ALUMNI_MANAGER') {
+      return res.status(404).json({ success: false, message: 'Alumni Manager not found' });
+    }
+
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Alumni Manager status.
+ * @route PATCH /api/admin/alumni-managers/:id/status
+ */
+exports.updateAlumniManagerStatus = async (req, res, next) => {
+  try {
+    const { isActive } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true }
+    );
+
+    if (!user || user.role !== 'ALUMNI_MANAGER') {
+      return res.status(404).json({ success: false, message: 'Alumni Manager not found' });
+    }
+
+    res.status(200).json({ success: true, message: 'Status updated successfully', data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Alumni Manager Analytics.
+ * @route GET /api/admin/alumni-managers/:id/analytics
+ */
+exports.getAlumniManagerAnalytics = async (req, res, next) => {
+  try {
+    // Basic analytics placeholder
+    res.status(200).json({
+      success: true,
+      data: {
+        alumniApproved: 0,
+        requestsHandled: 0,
+        activeSince: new Date()
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

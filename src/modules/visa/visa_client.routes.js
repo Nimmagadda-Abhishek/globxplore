@@ -6,7 +6,7 @@ const { authorize } = require('../../middleware/role');
 const upload = require('../../middleware/upload');
 
 // Public routes
-router.post('/login', visaClientController.login);
+
 
 // Protected routes
 router.use(protect);

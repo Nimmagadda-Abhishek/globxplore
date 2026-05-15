@@ -71,6 +71,19 @@ exports.loginUser = async (identifier, password) => {
     throw error;
   }
 
+  if (!user.isActive) {
+    const error = new Error('Your account has been deactivated. Please contact support.');
+    error.status = 403;
+    throw error;
+  }
+
+  if (!user.isApproved) {
+    const error = new Error('Your account is pending approval by the administrator.');
+    error.status = 403;
+    throw error;
+  }
+
+
   const accessToken = this.generateToken(user._id, 'access');
   const refreshToken = this.generateToken(user._id, 'refresh');
 
@@ -190,4 +203,125 @@ exports.changeUserPassword = async (userId, oldPassword, newPassword) => {
   await user.save();
 
   return { message: 'Password changed successfully' };
+};
+
+/**
+ * Generate a 6-digit OTP for password reset and send via email.
+ * @param {string} identifier - GX ID or email.
+ */
+exports.generateForgotPasswordOtp = async (identifier) => {
+  const normalized = String(identifier).trim();
+  const normalizedEmail = normalized.toLowerCase();
+  const normalizedGxId = normalized.toUpperCase();
+
+  const user = await User.findOne({
+    $or: [
+      { gxId: normalized },
+      { gxId: normalizedGxId },
+      { email: normalized },
+      { email: normalizedEmail },
+    ],
+  });
+
+  if (!user) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  user.resetPasswordOtp = otp;
+  // OTP expires in 10 minutes
+  user.resetPasswordOtpExpires = new Date(Date.now() + 10 * 60000);
+  await user.save();
+
+  // Send Email
+  try {
+    const notificationService = require('../notification/service');
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Password Reset Request</h2>
+        <p>Hi ${user.name},</p>
+        <p>We received a request to reset your password. Here is your 6-digit OTP:</p>
+        <h1 style="color: #4A90E2; letter-spacing: 2px;">${otp}</h1>
+        <p>This OTP is valid for 10 minutes. If you did not request a password reset, please ignore this email.</p>
+      </div>
+    `;
+    await notificationService.sendEmail(user.email, 'GlobXplorer - Password Reset OTP', emailHtml);
+  } catch (error) {
+    console.error('Failed to send OTP email:', error.message);
+    const emailError = new Error('Failed to send OTP email. Please try again later.');
+    emailError.status = 500;
+    throw emailError;
+  }
+
+  return { message: 'OTP sent to your registered email' };
+};
+
+/**
+ * Verify the OTP.
+ */
+exports.verifyForgotPasswordOtp = async (identifier, otp) => {
+  const normalized = String(identifier).trim();
+  const normalizedEmail = normalized.toLowerCase();
+  const normalizedGxId = normalized.toUpperCase();
+
+  const user = await User.findOne({
+    $or: [
+      { gxId: normalized },
+      { gxId: normalizedGxId },
+      { email: normalized },
+      { email: normalizedEmail },
+    ],
+  });
+
+  if (!user) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  if (user.resetPasswordOtp !== String(otp)) {
+    const error = new Error('Invalid OTP');
+    error.status = 400;
+    throw error;
+  }
+
+  if (user.resetPasswordOtpExpires < new Date()) {
+    const error = new Error('OTP has expired');
+    error.status = 400;
+    throw error;
+  }
+
+  return { success: true, message: 'OTP verified successfully' };
+};
+
+/**
+ * Reset the password using a valid OTP.
+ */
+exports.resetPasswordWithOtp = async (identifier, otp, newPassword) => {
+  // First, verify the OTP again to be safe
+  await this.verifyForgotPasswordOtp(identifier, otp);
+
+  const normalized = String(identifier).trim();
+  const normalizedEmail = normalized.toLowerCase();
+  const normalizedGxId = normalized.toUpperCase();
+
+  const user = await User.findOne({
+    $or: [
+      { gxId: normalized },
+      { gxId: normalizedGxId },
+      { email: normalized },
+      { email: normalizedEmail },
+    ],
+  });
+
+  user.password = newPassword;
+  user.resetPasswordOtp = undefined;
+  user.resetPasswordOtpExpires = undefined;
+  await user.save();
+
+  return { success: true, message: 'Password has been reset successfully' };
 };

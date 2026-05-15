@@ -8,23 +8,6 @@ const notificationService = require('../notification/service');
  * Visa Agent Login
  * @route POST /api/visa-agent/login
  */
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    if (!gxId || !password) {
-      return res.status(400).json({ success: false, message: 'GX ID and password are required' });
-    }
-
-    const loginData = await authService.loginUser(gxId, password);
-    if (loginData.user.role !== 'VISA_AGENT' && loginData.user.role !== 'ADMIN') {
-      return res.status(403).json({ success: false, message: 'Access denied: not a Visa Agent' });
-    }
-
-    res.status(200).json({ success: true, data: loginData });
-  } catch (error) {
-    next(error);
-  }
-};
 
 /**
  * Logout Visa Agent

@@ -4,23 +4,6 @@ const { AlumniService, AlumniPRStatus, AlumniCareerProgress } = require('./alumn
 const User = require('../user/model');
 const jwt = require('jsonwebtoken');
 
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    const user = await User.findOne({ gxId }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    if (user.role !== 'ALUMNI') {
-      return res.status(403).json({ message: 'Access denied. Alumni only.' });
-    }
-    if (!user.isApproved) {
-      return res.status(403).json({ success: false, message: 'Your account is pending approval from the Alumni Manager.' });
-    }
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
-    res.status(200).json({ token, user: { id: user._id, name: user.name, gxId: user.gxId } });
-  } catch (error) { next(error); }
-};
 
 exports.register = async (req, res, next) => {
   try {

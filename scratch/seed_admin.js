@@ -11,7 +11,7 @@ async function seedAdmin() {
     const adminData = {
       gxId: 'GXAD73291673',
       name: 'Nagaraju',
-      email: 'nagamaninfo@gmail.com',
+      email: 'admin.globxplore@gmail.com',
       phone: '8328226265',
       role: 'ADMIN',
       password: 'MooN@2026',

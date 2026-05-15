@@ -16,7 +16,7 @@ const { protect } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/role');
 
 // Public routes
-router.post('/login', adminController.login);
+
 
 // Protected routes
 router.use(protect);
@@ -87,6 +87,10 @@ router.patch('/agents/:id/status', rolesController.updateAgentStatus);
 // Alumni Managers APIs
 router.post('/alumni-managers', alumniManagersController.createAlumniManager);
 router.get('/alumni-managers', alumniManagersController.getAlumniManagers);
+router.get('/alumni-managers/:id', alumniManagersController.getAlumniManagerById);
+router.patch('/alumni-managers/:id/status', alumniManagersController.updateAlumniManagerStatus);
+router.get('/alumni-managers/:id/analytics', alumniManagersController.getAlumniManagerAnalytics);
+
 
 // 10. Visa APIs
 router.post('/visa-agents', visaAgentsController.createVisaAgent);

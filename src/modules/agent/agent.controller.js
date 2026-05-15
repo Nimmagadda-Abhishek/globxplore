@@ -12,15 +12,6 @@ const sendResponse = (res, statusCode, success, message, data = null) => {
   return res.status(statusCode).json(response);
 };
 
-exports.login = async (req, res, next) => {
-  try {
-    const { gxId, password } = req.body;
-    const result = await agentService.login(gxId, password);
-    sendResponse(res, 200, true, 'Success', result);
-  } catch (error) {
-    sendResponse(res, 400, false, error.message);
-  }
-};
 
 exports.logout = async (req, res, next) => {
   try {
