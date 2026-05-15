@@ -83,21 +83,22 @@ jobs:
             echo "📥 Installing dependencies..."
             npm install --omit=dev
 
-            # ── Reload/start app with PM2 ──
-            echo "🔄 Restarting application..."
-            if pm2 list | grep -q "globxplore-backend"; then
-              pm2 reload globxplore-backend --update-env
-            else
-              pm2 start src/server.js --name "globxplore-backend" \
-                --max-memory-restart 300M \
-                --restart-delay 3000
-            fi
+            # ── Stop and remove existing instance ──
+            echo "🛑 Stopping existing application..."
+            pm2 delete globxplore-backend 2>/dev/null || true
+
+            # ── Start app with PM2 ──
+            echo "🔄 Starting application..."
+            pm2 start src/server.js --name "globxplore-backend" \
+              --max-memory-restart 300M \
+              --restart-delay 3000 \
+              --env production
 
             pm2 save
 
             # ── Health check with detailed diagnostics ──
             echo "🏥 Running health check..."
-            sleep 8
+            sleep 10
             
             echo "📊 PM2 Status:"
             pm2 list
@@ -107,13 +108,24 @@ jobs:
             pm2 show globxplore-backend
             
             echo ""
+            echo "📝 Application logs (last 50 lines):"
+            pm2 logs globxplore-backend --lines 50 --nostream
+            
+            echo ""
             if pm2 show globxplore-backend | grep -q "online"; then
               echo "✅ App is online"
             else
               echo "❌ App failed to start"
               echo ""
-              echo "📝 Recent PM2 logs (last 30 lines):"
-              pm2 logs globxplore-backend --lines 30 --nostream
+              echo "🔍 System Diagnostics:"
+              echo "─── Memory Usage ───"
+              free -h
+              echo ""
+              echo "─── Running Node Processes ───"
+              ps aux | grep node || true
+              echo ""
+              echo "─── Port Status ───"
+              sudo netstat -tlnp 2>/dev/null | grep -E ':(3000|5000|8000|8080|3001)' || echo "Port check completed"
               exit 1
             fi
 
