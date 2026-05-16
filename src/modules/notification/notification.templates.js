@@ -16,15 +16,15 @@ const templates = {
   },
   PROMOTION_SUCCESS: {
     title: 'Account Activated',
-    message: 'Your GlobXplorer account is now active. Please check your registered email for login details and instructions.',
+    message: 'Your GlobXplore account is now active. Please check your registered email for login details and instructions.',
     whatsapp: 'gx_account_ready',
     email: (data) => `
-      <h1>Welcome to GlobXplorer!</h1>
+      <h1>Welcome to GlobXplore!</h1>
       <p>Hi ${data.name},</p>
       <p>Your student account has been created successfully.</p>
       <p><strong>Login ID:</strong> ${data.gxId}</p>
       <p><strong>Temporary Password:</strong> ${data.password}</p>
-      <p>Login here: <a href="https://gxcrm.com">gxcrm.com</a></p>
+      <p>Login here: <a href="https://crm.globxplore.in">https://crm.globxplore.in</a></p>
     `,
   },
   PAYMENT_PENDING: {
