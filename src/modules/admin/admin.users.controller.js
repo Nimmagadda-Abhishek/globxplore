@@ -107,7 +107,7 @@ exports.getUserById = async (req, res, next) => {
  */
 exports.updateUser = async (req, res, next) => {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -128,7 +128,7 @@ exports.updateUserStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
     const isActive = status === 'active';
-    const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { new: true });
+    const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { returnDocument: 'after' });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -163,6 +163,111 @@ exports.resetUserPassword = async (req, res, next) => {
       data: {
         gxId: user.gxId,
         temporaryPassword: newPassword
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update user password and/or email by admin.
+ */
+exports.updateUserPasswordEmail = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { password, email } = req.body;
+
+    if (!password && !email) {
+      return res.status(400).json({ success: false, message: 'Please provide password or email to update' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (email) {
+      const existingEmail = await User.findOne({ email: email.toLowerCase(), _id: { $ne: userId } });
+      if (existingEmail) {
+        return res.status(400).json({ success: false, message: 'Email already in use' });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    if (password) {
+      user.password = password;
+      user.mustChangePassword = false;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'User credentials updated successfully',
+      data: {
+        gxId: user.gxId,
+        email: user.email,
+        updated: {
+          password: !!password,
+          email: !!email
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Lock or unlock a user account.
+ */
+exports.lockUnlockUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    let isLocked = req.body.isLocked;
+
+    // Check query params if not in body
+    if (isLocked === undefined && req.query.isLocked !== undefined) {
+      isLocked = req.query.isLocked;
+    }
+
+    // Convert string representations to boolean
+    if (typeof isLocked === 'string') {
+      const normalized = isLocked.trim().toLowerCase();
+      if (normalized === 'true' || normalized === '1') {
+        isLocked = true;
+      } else if (normalized === 'false' || normalized === '0') {
+        isLocked = false;
+      }
+    }
+
+    // Default to true (locking the user) if not provided, since the endpoint is /lock
+    if (isLocked === undefined) {
+      isLocked = true;
+    }
+
+    if (typeof isLocked !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isLocked must be a boolean value or boolean string' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: { isLocked } },
+      { returnDocument: 'after', runValidators: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `User ${isLocked ? 'locked' : 'unlocked'} successfully`,
+      data: {
+        gxId: user.gxId,
+        name: user.name,
+        isLocked: user.isLocked
       }
     });
   } catch (error) {

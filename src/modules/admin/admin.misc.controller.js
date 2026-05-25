@@ -1,4 +1,5 @@
 const { ActivityLog } = require('../activity/model');
+const CompanyDocument = require('../document/companyDocument.model');
 
 // --- Partner Offer APIs ---
 exports.getOffers = async (req, res, next) => {
@@ -8,7 +9,58 @@ exports.getOffers = async (req, res, next) => {
 
 // --- Document Center APIs ---
 exports.uploadDocument = async (req, res, next) => {
-  res.status(200).json({ success: true, message: 'Document uploaded' });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const { name, description, type } = req.body;
+
+    const document = await CompanyDocument.create({
+      name: name || req.file.originalname,
+      description,
+      type,
+      url: req.file.path || req.file.location,
+      uploadedBy: req.user._id
+    });
+
+    res.status(201).json({ success: true, message: 'Document uploaded successfully', data: document });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getDocuments = async (req, res, next) => {
+  try {
+    const documents = await CompanyDocument.find().populate('uploadedBy', 'name email').sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: documents.length, data: documents });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getDocumentById = async (req, res, next) => {
+  try {
+    const document = await CompanyDocument.findById(req.params.id).populate('uploadedBy', 'name email');
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    res.status(200).json({ success: true, data: document });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteDocument = async (req, res, next) => {
+  try {
+    const document = await CompanyDocument.findByIdAndDelete(req.params.id);
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+    res.status(200).json({ success: true, message: 'Document deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // --- Reports APIs ---

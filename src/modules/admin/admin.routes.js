@@ -11,8 +11,10 @@ const visaPaymentController = require('./admin.visa_payment.controller');
 const miscController = require('./admin.misc.controller');
 const visaAgentsController = require('./admin.visa_agents.controller');
 const alumniManagersController = require('./admin.alumni_managers.controller');
+const agentPerformanceController = require('./admin.agent_performance.controller');
 
 const { protect } = require('../../middleware/auth');
+const upload = require('../../middleware/upload');
 const { authorize } = require('../../middleware/role');
 
 // Public routes
@@ -60,6 +62,8 @@ router.get('/users/:id', usersController.getUserById);
 router.put('/users/:id', usersController.updateUser);
 router.patch('/users/:id/status', usersController.updateUserStatus);
 router.post('/users/:id/reset-password', usersController.resetUserPassword);
+router.patch('/users/:userId/update-credentials', usersController.updateUserPasswordEmail);
+router.patch('/users/:userId/lock', usersController.lockUnlockUser);
 
 
 // Student Registration Approval
@@ -108,11 +112,17 @@ router.get('/payments/summary', visaPaymentController.getPaymentSummary);
 router.get('/payments/:id', visaPaymentController.getPaymentById);
 router.post('/payments/refund/:id', visaPaymentController.initiateRefund);
 
-// 12. Partner Offer APIs
+// 12. Agent Performance API
+router.get('/agents/performance', agentPerformanceController.getAgentPerformance);
+
+// 12b. Partner Offer APIs
 router.get('/offers', miscController.getOffers);
 
 // 13. Document Center APIs
-router.post('/documents/upload', miscController.uploadDocument);
+router.post('/documents/upload', upload.single('file'), miscController.uploadDocument);
+router.get('/documents', miscController.getDocuments);
+router.get('/documents/:id', miscController.getDocumentById);
+router.delete('/documents/:id', miscController.deleteDocument);
 
 // 14. Reports APIs
 router.get('/reports/weekly', miscController.getWeeklyReport);

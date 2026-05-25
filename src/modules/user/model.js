@@ -52,6 +52,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  isLocked: {
+    type: Boolean,
+    default: false,
+  },
   agentDetails: {
     businessName: { type: String },
     customerWhatsappNumber: { type: String },

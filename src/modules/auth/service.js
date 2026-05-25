@@ -83,6 +83,11 @@ exports.loginUser = async (identifier, password) => {
     throw error;
   }
 
+  if (user.isLocked) {
+    const error = new Error('Your account has been locked. Please contact support.');
+    error.status = 403;
+    throw error;
+  }
 
   const accessToken = this.generateToken(user._id, 'access');
   const refreshToken = this.generateToken(user._id, 'refresh');
