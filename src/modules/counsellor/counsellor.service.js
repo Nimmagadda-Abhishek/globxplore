@@ -14,6 +14,7 @@ exports.claimLead = async (leadId, counsellorId) => {
   if (!lead) throw new Error('Lead not found');
   if (lead.status !== 'Interested') throw new Error('Only interested leads can be claimed');
 
+
   // Check if already converted
   let student = await Student.findOne({ phone: lead.phone });
   if (student) {
@@ -46,7 +47,77 @@ exports.claimLead = async (leadId, counsellorId) => {
 /**
  * Update student pipeline stage.
  */
+/**
+ * Directly add/create a student manually by counsellor.
+ */
+exports.addStudent = async (counsellorId, { counsellorGxId, studentData }) => {
+  if (!counsellorId) throw new Error('Counsellor id is required');
+  if (!studentData) throw new Error('studentData is required');
+
+  const {
+    name,
+    email,
+    phone,
+    interestedCountry,
+    interestedUniversity,
+    interestedLocation,
+    interestedProgram,
+    educationBackground,
+    percentage,
+    passingYear,
+    loanStatus,
+    universityType,
+    intake,
+    alternateContact
+  } = studentData;
+
+  // Duplicates: prevent creating multiple students with same phone/email
+  if (!phone) throw new Error('phone is required');
+
+  const existingByPhone = await Student.findOne({ phone });
+  if (existingByPhone) {
+    // If it's already assigned to this counsellor, treat as idempotent create.
+    if (existingByPhone.assignedCounsellor && existingByPhone.assignedCounsellor.toString() === counsellorId.toString()) {
+      return existingByPhone;
+    }
+    throw new Error('A student with this phone already exists');
+  }
+
+  if (email) {
+    const existingByEmail = await Student.findOne({ email });
+    if (existingByEmail) throw new Error('A student with this email already exists');
+  }
+
+  const gxId = await generateGxId('STUDENT');
+
+  const student = await Student.create({
+    gxId,
+    name,
+    email,
+    phone,
+    assignedCounsellor: counsellorId,
+    pipelineStage: 'New',
+    stageHistory: [{ stage: 'New', comment: 'Student created manually by counsellor' }],
+    // map optional fields
+    interestedCountry,
+    interestedUniversity,
+    interestedLocation,
+    interestedProgram,
+    educationBackground,
+    percentage,
+    passingYear,
+    loanStatus,
+    universityType,
+    intake,
+    alternateContact,
+    createdBy: counsellorId
+  });
+
+  return student;
+};
+
 exports.updateStage = async (studentId, stage, comment, userId) => {
+
   const student = await Student.findById(studentId);
   if (!student) throw new Error('Student not found');
 

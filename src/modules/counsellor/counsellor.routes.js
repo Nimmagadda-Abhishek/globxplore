@@ -12,4 +12,8 @@ router.get('/dashboard/urgent-actions', counsellorController.getUrgentActions);
 router.get('/dashboard/pipeline', counsellorController.getPipeline);
 router.get('/students', counsellorController.getMyStudents);
 
+// Create/add a student directly (not based on lead claiming)
+router.post('/students', counsellorController.addStudent);
+
 module.exports = router;
+

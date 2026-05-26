@@ -186,3 +186,59 @@ exports.getMyStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Counsellor Action: Add/enter a student manually (direct create)
+ */
+exports.addStudent = async (req, res, next) => {
+  try {
+    const counsellorId = req.user._id;
+
+    const {
+      name,
+      email,
+      phone,
+      interestedCountry,
+      interestedUniversity,
+      interestedLocation,
+      interestedProgram,
+      educationBackground,
+      percentage,
+      passingYear,
+      loanStatus,
+      universityType,
+      intake,
+      alternateContact
+    } = req.body || {};
+
+    if (!name || !phone) {
+      return res.status(400).json({ success: false, message: 'name and phone are required' });
+    }
+
+    const counsellorService = require('./counsellor.service');
+    const result = await counsellorService.addStudent(counsellorId, {
+      counsellorGxId: req.user.gxId,
+      studentData: {
+        name,
+        email,
+        phone,
+        interestedCountry,
+        interestedUniversity,
+        interestedLocation,
+        interestedProgram,
+        educationBackground,
+        percentage,
+        passingYear,
+        loanStatus,
+        universityType,
+        intake,
+        alternateContact
+      }
+    });
+
+    res.status(201).json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
