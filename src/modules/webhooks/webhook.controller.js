@@ -7,18 +7,41 @@ const WhatsAppProvider = require('../../providers/WhatsAppProvider');
  * Verify token handshake for Meta
  */
 exports.verifyWebhook = (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+  // Meta can send either dotted query params (hub.verify_token) or underscored (hub_verify_token)
+  const mode = req.query['hub.mode'] || req.query['hub_mode'];
+  const token =
+    req.query['hub.verify_token'] ||
+    req.query['hub_verify_token'] ||
+    req.query['hub.verifyToken'];
+  const challenge = req.query['hub.challenge'] || req.query['hub_challenge'];
 
-  if (mode && token) {
-    if (mode === 'subscribe' && token === process.env.WA_VERIFY_TOKEN) {
-      console.log('Webhook Verified Successfully');
-      res.status(200).send(challenge);
-    } else {
-      res.sendStatus(403);
-    }
+  if (!mode || !token) {
+    console.warn('Webhook verification failed: missing mode or token', {
+      hasMode: Boolean(mode),
+      hasToken: Boolean(token),
+      queryKeys: Object.keys(req.query || {})
+    });
+    return res.sendStatus(403);
   }
+
+  const expected = process.env.WA_VERIFY_TOKEN;
+
+  // Avoid logging full token/challenge values
+  const tokenMatches = token === expected;
+  const modeMatches = mode === 'subscribe';
+
+  if (modeMatches && tokenMatches) {
+    console.log('Webhook Verified Successfully');
+    return res.status(200).send(challenge);
+  }
+
+  console.warn('Webhook verification rejected', {
+    mode: String(mode),
+    modeMatches,
+    tokenMatches,
+    hasChallenge: Boolean(challenge)
+  });
+  return res.sendStatus(403);
 };
 
 /**
