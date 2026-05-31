@@ -26,9 +26,17 @@ exports.verifyWebhook = (req, res) => {
 
   const expected = process.env.WA_VERIFY_TOKEN;
 
-  // Avoid logging full token/challenge values
+  // Avoid logging full token/challenge values, but keep a small diagnostic signal in logs
   const tokenMatches = token === expected;
   const modeMatches = mode === 'subscribe';
+
+  console.log('Webhook verify debug', {
+    receivedHasValue: Boolean(token),
+    expectedExists: Boolean(expected),
+    receivedTokenMatchesExpected: tokenMatches,
+    modeMatches
+  });
+
 
   if (modeMatches && tokenMatches) {
     console.log('Webhook Verified Successfully');
