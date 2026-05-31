@@ -24,7 +24,7 @@ exports.verifyWebhook = (req, res) => {
     return res.sendStatus(403);
   }
 
-  const expected = process.env.WA_VERIFY_TOKEN;
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN;
 
   // Avoid logging full token/challenge values, but keep a small diagnostic signal in logs
   const tokenMatches = token === expected;
