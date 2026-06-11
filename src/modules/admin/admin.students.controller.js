@@ -6,11 +6,19 @@ const notificationService = require('../notification/service');
  */
 exports.getStudents = async (req, res, next) => {
   try {
-    const { country, stage, page = 1, limit = 20 } = req.query;
+    const { country, stage, search, page = 1, limit = 20 } = req.query;
     const query = {};
 
     if (country) query.country = country;
     if (stage) query.pipelineStage = stage;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { gxId: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
 
     const students = await Student.find(query)
       .limit(limit * 1)
@@ -116,6 +124,8 @@ exports.getStudentPipeline = async (req, res, next) => {
     const pipeline = await Student.aggregate([
       { $group: { _id: '$pipelineStage', students: { $push: '$$ROOT' } } }
     ]);
+
+    await Student.populate(pipeline, { path: 'students.assignedCounsellor', select: 'name', model: 'User' });
 
     res.status(200).json({
       success: true,

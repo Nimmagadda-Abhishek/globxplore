@@ -12,6 +12,7 @@ const miscController = require('./admin.misc.controller');
 const visaAgentsController = require('./admin.visa_agents.controller');
 const alumniManagersController = require('./admin.alumni_managers.controller');
 const agentPerformanceController = require('./admin.agent_performance.controller');
+const staffController = require('../student/controller');
 
 const { protect } = require('../../middleware/auth');
 const upload = require('../../middleware/upload');
@@ -30,8 +31,19 @@ router.get('/leads/:id', authorize('ADMIN', 'COUNSELLOR'), leadsController.getLe
 
 // 4. Attendance & Productivity APIs (Admin-facing, but allowed for Counsellors for performance viewing)
 router.get('/attendance', authorize('ADMIN', 'COUNSELLOR'), activityController.getAttendance);
+router.get('/attendance', authorize('ADMIN', 'COUNSELLOR'), activityController.getAttendance);
+
+// Admin: calculate + store daily attendance for a custom period
+router.post('/attendance/calculate', authorize('ADMIN'), activityController.calculateAttendanceForRange);
+
+// Admin: download/export stored attendance for a custom period as CSV
+router.get('/attendance/export', authorize('ADMIN'), activityController.exportAttendanceForRangeCsv);
+
+// Must be after /attendance/export so "export" doesn't match :userId
 router.get('/attendance/:userId', authorize('ADMIN', 'COUNSELLOR'), activityController.getUserAttendance);
 router.get('/performance', authorize('ADMIN', 'COUNSELLOR'), activityController.getPerformance);
+
+
 
 // 6. Student APIs (Allowed for ADMIN and COUNSELLOR)
 router.get('/students', authorize('ADMIN', 'COUNSELLOR'), studentsController.getStudents);
@@ -39,6 +51,7 @@ router.get('/students/pipeline', authorize('ADMIN', 'COUNSELLOR'), studentsContr
 router.get('/students/intake-stats', authorize('ADMIN', 'COUNSELLOR'), studentsController.getIntakeStats);
 router.get('/students/:id', authorize('ADMIN', 'COUNSELLOR'), studentsController.getStudentById);
 router.patch('/students/:id/stage', authorize('ADMIN', 'COUNSELLOR'), studentsController.updateStudentStage);
+router.post('/students/:id/message', authorize('ADMIN', 'COUNSELLOR'), staffController.addMessage);
 
 // Everything else below is ADMIN only
 router.use(authorize('ADMIN'));
@@ -52,7 +65,11 @@ router.post('/leads/bulk-upload', leadsController.bulkUploadLeads);
 
 // 2. Dashboard APIs
 router.get('/dashboard/summary', adminController.getDashboardSummary);
+router.get('/dashboard/charts/export', adminController.exportDashboardCharts);
 router.get('/dashboard/charts', adminController.getDashboardCharts);
+
+// 2b. Alerts APIs
+router.get('/alerts', miscController.getAlerts);
 
 // 3. User Management APIs
 router.post('/users', usersController.createUser);
@@ -82,11 +99,13 @@ router.get('/telecallers/:id/analytics', rolesController.getTelecallerAnalytics)
 router.patch('/telecallers/:id/reassign', rolesController.reassignTelecallerLeads);
 
 // 9. Agent APIs
-router.get('/agents', rolesController.getAgents);
+router.get('/agents', rolesController.getAgents); // KPI summary
+router.get('/agents/summary', rolesController.getAgentsSummary); // raw list
 router.get('/agents/map', rolesController.getAgentsMap);
 router.get('/agent-managers', rolesController.getAgentManagers);
 router.get('/agents/:id', rolesController.getAgentById);
 router.patch('/agents/:id/status', rolesController.updateAgentStatus);
+
 
 // Alumni Managers APIs
 router.post('/alumni-managers', alumniManagersController.createAlumniManager);

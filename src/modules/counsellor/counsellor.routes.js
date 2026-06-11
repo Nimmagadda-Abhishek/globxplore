@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const counsellorController = require('./counsellor.controller');
+const staffController = require('../student/controller');
 const { protect } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/role');
 
@@ -14,6 +15,7 @@ router.get('/students', counsellorController.getMyStudents);
 
 // Create/add a student directly (not based on lead claiming)
 router.post('/students', counsellorController.addStudent);
+router.post('/students/:id/message', staffController.addMessage);
 
 module.exports = router;
 

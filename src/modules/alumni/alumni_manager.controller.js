@@ -104,6 +104,17 @@ exports.approveRegistration = async (req, res, next) => {
       phone: registration.phone
     });
 
+    // Send welcome email with credentials (non-blocking)
+    if (newAlumniUser._autoPassword) {
+      notificationService.sendWelcomeEmail({
+        email: registration.email,
+        name: registration.name,
+        gxId: newAlumniUser.gxId,
+        password: newAlumniUser._autoPassword,
+        role: 'Alumni'
+      });
+    }
+
     registration.status = 'Approved';
     registration.linkedUser = newAlumniUser._id;
     await registration.save();

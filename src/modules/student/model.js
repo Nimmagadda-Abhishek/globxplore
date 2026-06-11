@@ -33,7 +33,7 @@ const studentSchema = new mongoose.Schema({
   interestedProgram: String,
   loanStatus: {
     type: String,
-    enum: ['required', 'not_required', 'already_applied', 'In Progress'],
+    enum: ['required', 'Required', 'not_required', 'Not Required', 'already_applied', 'Already Applied', 'In Progress'],
   },
   universityType: {
     type: String,

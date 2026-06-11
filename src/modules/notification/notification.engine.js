@@ -81,10 +81,12 @@ class NotificationEngine {
         const components = notification.metadata?.get ? notification.metadata.get('components') : notification.metadata?.components;
 
         if (templateName) {
+          // Defaulting to en_US as it is the most common default for WhatsApp templates
+          const language = user.language || (notification.metadata && notification.metadata.language) || 'en_US';
           return await WhatsAppProvider.sendTemplate(
             user.phone,
             templateName,
-            user.language || 'en',
+            language,
             components || []
           );
         } else {

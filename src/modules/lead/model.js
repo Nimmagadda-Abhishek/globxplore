@@ -32,7 +32,7 @@ const leadSchema = new mongoose.Schema({
   },
   source: {
     type: String,
-    enum: ['Website', 'Facebook Ads', 'Google Ads', 'Instagram', 'LinkedIn', 'Referral', 'Walk-in', 'Other'],
+    enum: ['Website', 'Facebook Ads', 'Google Ads', 'Instagram', 'LinkedIn', 'Referral', 'Walk-in', 'Other', 'Agent Lead'],
     default: 'Website',
   },
   status: {
@@ -44,6 +44,39 @@ const leadSchema = new mongoose.Schema({
     ],
     default: 'Lead received',
   },
+
+  /**
+   * Interest/qualification captured at lead creation.
+   * (Frontend sends these values; they must exist in the Lead schema to be persisted.)
+   */
+  interestCountry: {
+    type: String,
+    trim: true,
+  },
+  course: {
+    type: String,
+    trim: true,
+  },
+  interestedLevel: {
+    type: String,
+    trim: true,
+  },
+
+  // Backward-compatible aliases for any older frontend misspellings.
+  // These should be treated as aliases; mapping happens in controller.
+  intrestCountry: {
+    type: String,
+    trim: true,
+  },
+  intrestedLevel: {
+    type: String,
+    trim: true,
+  },
+  intrestCourse: {
+    type: String,
+    trim: true,
+  },
+
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

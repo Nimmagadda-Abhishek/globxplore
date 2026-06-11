@@ -42,8 +42,28 @@ exports.registerUser = async (userData) => {
     user._autoPassword = password;
   }
 
+  // Send welcome email for newly created users (admin-created via auth/register)
+  // Non-blocking: never fail user creation because of email.
+  try {
+    const notificationService = require('../notification/service');
+    if (user.email && user._autoPassword) {
+      await notificationService.sendWelcomeEmail({
+        email: user.email,
+        name: user.name,
+        gxId: user.gxId,
+        password: user._autoPassword,
+        role: user.role,
+      });
+    } else {
+      console.warn('Welcome email skipped: missing email or password');
+    }
+  } catch (err) {
+    console.error('Failed to trigger welcome email:', err.message);
+  }
+
   return user;
 };
+
 
 /**
  * Login user using GX ID/email and password.

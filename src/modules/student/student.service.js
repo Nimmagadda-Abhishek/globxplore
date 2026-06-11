@@ -114,17 +114,30 @@ exports.getStudentDashboard = async (userId) => {
     daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
+  const alerts = await exports.getStudentAlerts(userId);
+  const pendingTasks = [];
+  if (missingDocsCount > 0) {
+    pendingTasks.push({ title: 'Upload Missing Documents', subtitle: `${missingDocsCount} documents pending upload` });
+  }
+  if (!student.subscription || student.subscription.status === 'none') {
+    pendingTasks.push({ title: 'Upgrade Subscription', subtitle: 'Choose a plan to get started' });
+  }
+
   return {
     currentStage: student.pipelineStage,
     missingDocsCount,
-    assignedCounsellor: student.assignedCounsellor ? student.assignedCounsellor.name : 'Not Assigned',
+    counsellor: student.assignedCounsellor ? {
+      name: student.assignedCounsellor.name,
+      email: student.assignedCounsellor.email,
+      region: 'General'
+    } : null,
     subscription: {
       active: student.subscription.status !== 'none' && daysRemaining > 0,
       plan: student.subscription.status,
       expiry: daysRemaining > 0 ? `${daysRemaining} days` : 'Expired'
     },
-    pendingTasks: 0, // Placeholder
-    notificationsCount: 0 // Placeholder
+    pendingTasks: pendingTasks.length > 0 ? pendingTasks : [{ title: "No pending tasks", subtitle: "You're all caught up!" }],
+    notificationsCount: alerts.length
   };
 };
 

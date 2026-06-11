@@ -54,64 +54,83 @@ exports.addStudent = async (counsellorId, { counsellorGxId, studentData }) => {
   if (!counsellorId) throw new Error('Counsellor id is required');
   if (!studentData) throw new Error('studentData is required');
 
-  const {
-    name,
-    email,
-    phone,
-    interestedCountry,
-    interestedUniversity,
-    interestedLocation,
-    interestedProgram,
-    educationBackground,
-    percentage,
-    passingYear,
-    loanStatus,
-    universityType,
-    intake,
-    alternateContact
-  } = studentData;
+  const { name, email, phone } = studentData;
+  if (!name || !phone) throw new Error('name and phone are required');
 
-  // Duplicates: prevent creating multiple students with same phone/email
-  if (!phone) throw new Error('phone is required');
-
-  const existingByPhone = await Student.findOne({ phone });
-  if (existingByPhone) {
-    // If it's already assigned to this counsellor, treat as idempotent create.
-    if (existingByPhone.assignedCounsellor && existingByPhone.assignedCounsellor.toString() === counsellorId.toString()) {
-      return existingByPhone;
-    }
-    throw new Error('A student with this phone already exists');
+  // 1. Strict Duplicate Check
+  const existingUserPhone = await User.findOne({ phone, role: 'STUDENT' });
+  const existingStudentPhone = await Student.findOne({ phone });
+  if (existingUserPhone || existingStudentPhone) {
+    throw new Error('A student with this phone number already exists');
   }
 
   if (email) {
-    const existingByEmail = await Student.findOne({ email });
-    if (existingByEmail) throw new Error('A student with this email already exists');
+    const existingUserEmail = await User.findOne({ email, role: 'STUDENT' });
+    const existingStudentEmail = await Student.findOne({ email });
+    if (existingUserEmail || existingStudentEmail) {
+      throw new Error('A student with this email already exists');
+    }
   }
 
+  // 2. Generate Credentials
   const gxId = await generateGxId('STUDENT');
+  const crypto = require('crypto');
+  const temporaryPassword = crypto.randomBytes(4).toString('hex');
 
-  const student = await Student.create({
+  // 3. Create Global User Record (so it appears everywhere and allows login)
+  const user = await User.create({
     gxId,
     name,
     email,
     phone,
+    password: temporaryPassword,
+    role: 'STUDENT',
+    mustChangePassword: true,
+    createdBy: counsellorId
+  });
+
+  // 4. Create Student Record with ALL details
+  const student = await Student.create({
+    ...studentData,
+    gxId,
+    userId: user._id,
     assignedCounsellor: counsellorId,
     pipelineStage: 'New',
     stageHistory: [{ stage: 'New', comment: 'Student created manually by counsellor' }],
-    // map optional fields
-    interestedCountry,
-    interestedUniversity,
-    interestedLocation,
-    interestedProgram,
-    educationBackground,
-    percentage,
-    passingYear,
-    loanStatus,
-    universityType,
-    intake,
-    alternateContact,
     createdBy: counsellorId
   });
+
+  // Attach credentials to return value for frontend to display
+  student._doc.credentials = { gxId, password: temporaryPassword };
+
+  const notificationService = require('../notification/service');
+  
+  // Send Welcome Email with credentials
+  if (email) {
+    await notificationService.sendWelcomeEmail({
+      email,
+      name,
+      gxId,
+      password: temporaryPassword,
+      role: 'Student'
+    });
+  }
+
+  // Trigger WhatsApp & In-App welcome notification
+  try {
+    await notificationService.triggerNotification({
+      userId: user._id,
+      eventKey: 'PROMOTION_SUCCESS',
+      data: {
+        name,
+        gxId,
+        password: temporaryPassword
+      },
+      channels: ['app', 'whatsapp']
+    });
+  } catch (err) {
+    console.error('Failed to trigger welcome notifications:', err.message);
+  }
 
   return student;
 };

@@ -52,6 +52,8 @@ app.use('/api/alumni', require('./modules/alumni/alumni.routes'));
 app.use('/api/subscriptions', require('./modules/subscription/routes'));
 app.use('/api/appointments', require('./modules/appointment/routes'));
 app.use('/api/documents', require('./modules/document/routes'));
+app.use('/api/telecaller-dashboard', require('./modules/telecaller-dashboard/telecaller-dashboard.routes'));
+
 
 // Health Check
 app.get('/health', (req, res) => {

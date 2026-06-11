@@ -1,5 +1,6 @@
 const User = require('./model');
 const { registerUser } = require('../auth/service');
+const { sendWelcomeEmail } = require('../notification/service');
 
 const crypto = require('crypto');
 
@@ -10,7 +11,30 @@ exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.status(200).json({ success: true, data: user });
+    let responseData = user.toObject();
+
+    if (user.role === 'AGENT') {
+      const Student = require('../student/model');
+      const totalStudents = await Student.countDocuments({ sourceAgent: user._id });
+      
+      let tierDetails;
+      if (totalStudents < 5) {
+        tierDetails = { name: 'Starter - Bronze', badge: 'Bronze', description: 'Basic', bonus: 'Regular Commission', nextTierAt: 5, currentCount: totalStudents };
+      } else if (totalStudents <= 15) {
+        tierDetails = { name: 'Growth - Silver', badge: 'Silver', description: 'Advanced', bonus: 'Additional + 5K per student', nextTierAt: 16, currentCount: totalStudents };
+      } else if (totalStudents <= 30) {
+        tierDetails = { name: 'Pro - Gold', badge: 'Gold', description: 'Professional', bonus: 'Additional + 7K per student', nextTierAt: 31, currentCount: totalStudents };
+      } else {
+        tierDetails = { name: 'Elite - Platinum', badge: 'Platinum', description: 'Ultimate', bonus: 'Additional +10K per all the students from starting', nextTierAt: null, currentCount: totalStudents };
+      }
+
+      responseData.agentDetails = {
+        ...responseData.agentDetails,
+        tierDetails
+      };
+    }
+
+    res.status(200).json({ success: true, data: responseData });
   } catch (error) {
     next(error);
   }
@@ -63,8 +87,16 @@ exports.createAgent = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Missing required business details fields' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'Business Board Photo is required' });
+    let businessBoardPhotoUrl = null;
+    let verificationPhotoUrl = null;
+    
+    if (req.files) {
+      if (req.files.businessBoardPhoto && req.files.businessBoardPhoto[0]) {
+        businessBoardPhotoUrl = req.files.businessBoardPhoto[0].location;
+      }
+      if (req.files.verificationPhoto && req.files.verificationPhoto[0]) {
+        verificationPhotoUrl = req.files.verificationPhoto[0].location;
+      }
     }
 
     const agentDetails = {
@@ -72,7 +104,8 @@ exports.createAgent = async (req, res, next) => {
       customerWhatsappNumber,
       secondaryNumber,
       locationUrl,
-      businessBoardPhoto: req.file.location, // S3 URL returned by multer-s3
+      businessBoardPhoto: businessBoardPhotoUrl,
+      verificationPhoto: verificationPhotoUrl,
       accountDetails,
       mouStatus: mouStatus || 'Not Completed',
       businessAreaName,
@@ -90,6 +123,11 @@ exports.createAgent = async (req, res, next) => {
       agentDetails,
       createdBy: (req.user.role === 'ADMIN' && req.body.assignedManagerId) ? req.body.assignedManagerId : req.user._id 
     });
+
+    // Send welcome email with credentials (non-blocking)
+    if (agent._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: agent.gxId, password: agent._autoPassword, role: 'Agent' });
+    }
 
     res.status(201).json({
       success: true,
@@ -145,6 +183,11 @@ exports.createAgentManager = async (req, res, next) => {
       phone,
       role: 'AGENT_MANAGER',
     });
+
+    // Send welcome email with credentials (non-blocking)
+    if (agentManager._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: agentManager.gxId, password: agentManager._autoPassword, role: 'Agent Manager' });
+    }
 
     res.status(201).json({
       success: true,
@@ -248,6 +291,11 @@ exports.createTelecaller = async (req, res, next) => {
       role: 'TELECALLER',
     });
 
+    // Send welcome email with credentials (non-blocking)
+    if (telecaller._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: telecaller.gxId, password: telecaller._autoPassword, role: 'Telecaller' });
+    }
+
     res.status(201).json({
       success: true,
       message: `Telecaller created successfully. Password: ${telecaller._autoPassword}`,
@@ -310,10 +358,35 @@ exports.updateAgentStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Agent not found' });
     }
 
-    if (['Not visited', 'Closed', 'Revisit', 'confirmed'].includes(agentStatus)) {
+    if (['not_visited', 'visited', 'revisit', 'confirmed', 'not_interested', 'permanently_closed', 'partnered'].includes(agentStatus)) {
       agent.agentDetails.agentStatus = agentStatus;
+      agent.agentDetails.statusHistory.push({
+        status: agentStatus,
+        updatedBy: req.user._id
+      });
+      
+      let responseData = { agent };
+      
+      // If updating to confirmed, generate a new password and return credentials
+      if (agentStatus === 'confirmed') {
+        const temporaryPassword = crypto.randomBytes(4).toString('hex');
+        agent.password = temporaryPassword;
+        
+        responseData.generatedPassword = temporaryPassword;
+        responseData.gxId = agent.gxId;
+        
+        // Send welcome email with credentials
+        sendWelcomeEmail({ 
+          email: agent.email, 
+          name: agent.name, 
+          gxId: agent.gxId, 
+          password: temporaryPassword, 
+          role: 'Agent' 
+        }).catch(err => console.error('Failed to send welcome email:', err));
+      }
+
       await agent.save();
-      res.status(200).json({ success: true, message: `Agent status updated to ${agentStatus}`, data: agent });
+      res.status(200).json({ success: true, message: `Agent status updated to ${agentStatus}`, data: responseData });
     } else {
       res.status(400).json({ success: false, message: 'Invalid status' });
     }
@@ -367,6 +440,11 @@ exports.createVisaAgent = async (req, res, next) => {
       role: 'VISA_AGENT',
     });
 
+    // Send welcome email with credentials (non-blocking)
+    if (visaAgent._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: visaAgent.gxId, password: visaAgent._autoPassword, role: 'Visa Agent' });
+    }
+
     res.status(201).json({
       success: true,
       message: `Visa Agent created successfully. Password: ${visaAgent._autoPassword}`,
@@ -409,6 +487,11 @@ exports.createVisaClient = async (req, res, next) => {
     // Assign CreatedBy 
     visaClient.createdBy = req.user._id;
     await visaClient.save();
+
+    // Send welcome email with credentials (non-blocking)
+    if (visaClient._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: visaClient.gxId, password: visaClient._autoPassword, role: 'Visa Client' });
+    }
 
     res.status(201).json({
       success: true,

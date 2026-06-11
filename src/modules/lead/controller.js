@@ -12,14 +12,67 @@ const crypto = require('crypto');
 exports.createLead = async (req, res, next) => {
   try {
     const gxId = await generateGxId('LEAD');
-    
+
     // Auto-detect source agent if creator is an Agent
     const sourceAgent = req.user.role === 'AGENT' ? req.user._id : undefined;
 
     // Sanitize payload to allow DB defaults to trigger if frontend sends empty strings
     const payload = { ...req.body };
+
+    // Normalize frontend keys to Lead schema keys.
+    // Frontend (UI) sends:
+    // - country -> interestCountry
+    // - interest -> interestedLevel
+    // - course -> course
+    if ((!payload.interestCountry || payload.interestCountry === '') && payload.country) {
+      payload.interestCountry = payload.country;
+    }
+    if ((!payload.interestedLevel || payload.interestedLevel === '') && payload.interest) {
+      payload.interestedLevel = payload.interest;
+    }
+
+    // Backward compatible misspellings mapping (if frontend used older keys)
+    if ((!payload.interestCountry || payload.interestCountry === '') && payload.intrestCountry) {
+      payload.interestCountry = payload.intrestCountry;
+    }
+    if ((!payload.course || payload.course === '') && payload.intrestCourse) {
+      payload.course = payload.intrestCourse;
+    }
+    if ((!payload.interestedLevel || payload.interestedLevel === '') && payload.intrestedLevel) {
+      payload.interestedLevel = payload.intrestedLevel;
+    }
+
     if (!payload.source || payload.source === '') {
       delete payload.source;
+    }
+
+    if (!payload.email || payload.email.trim() === '') {
+      delete payload.email;
+    }
+
+    // Check for existing lead or student with same phone
+    if (payload.phone) {
+      const existingLeadPhone = await Lead.findOne({ phone: payload.phone });
+      if (existingLeadPhone) {
+        return res.status(400).json({ success: false, message: 'A lead with this phone number already exists.' });
+      }
+      const existingStudentPhone = await Student.findOne({ phone: payload.phone });
+      if (existingStudentPhone) {
+        return res.status(400).json({ success: false, message: 'A student with this phone number already exists.' });
+      }
+    }
+
+    // Check for existing lead or student with same email
+    if (payload.email) {
+      const searchEmail = payload.email.toLowerCase();
+      const existingLeadEmail = await Lead.findOne({ email: searchEmail });
+      if (existingLeadEmail) {
+        return res.status(400).json({ success: false, message: 'A lead with this email already exists.' });
+      }
+      const existingStudentEmail = await Student.findOne({ email: searchEmail });
+      if (existingStudentEmail) {
+        return res.status(400).json({ success: false, message: 'A student with this email already exists.' });
+      }
     }
 
     const lead = await Lead.create({
@@ -47,17 +100,84 @@ exports.updateLeadStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
+    // Secure lead editing:
+    // - Telecaller can only edit leads assigned to them.
+    // - Telecaller can only update call-related fields (status/notes/followUpDate).
     if (req.user.role === 'TELECALLER') {
+      // Ownership check
+      if (!lead.assignedTo || lead.assignedTo.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only edit leads assigned to you',
+        });
+      }
+
+      // Field scope check (prevents updating other arbitrary lead data)
+      // TELECALLER is allowed to update:
+      // - identity/contact: name, email, phone
+      // - status pipeline: status
+      // - telecall notes + follow-up: notes, followUpDate
+      // - promotion-related info captured at time of interest/qualification
+      //   (some of these are not stored on Lead model, but may be sent by frontend)
+      const allowedTelecallerFields = new Set([
+        'name',
+        'email',
+        'phone',
+        'status',
+        'notes',
+        'followUpDate',
+        // interest fields
+        'interestCountry',
+        'course',
+        'interestedLevel',
+        // frontend legacy keys / aliases
+        'country',
+        'intrestCountry',
+        'intrestedLevel',
+        'intrestCourse',
+        'intake',
+
+      ]);
+
+      const incomingKeys = Object.keys(req.body || {});
+      const disallowed = incomingKeys.filter((k) => !allowedTelecallerFields.has(k));
+      if (disallowed.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid fields for telecaller update: ${disallowed.join(', ')}`,
+        });
+      }
+
+
       lead.handledByTelecaller = req.user._id;
+    }
+
+    // Telecaller updates may include contact/name changes; apply only permitted keys (validated above).
+    if (req.user.role === 'TELECALLER') {
+      if (req.body.name) lead.name = req.body.name;
+      if (req.body.email) lead.email = req.body.email;
+      if (req.body.phone) lead.phone = req.body.phone;
     }
 
     lead.status = status;
     lead.lastInteractionDate = new Date();
     lead.updatedBy = req.user._id;
-    if (notes) lead.notes.push(notes);
-    if (followUpDate) lead.followUpDate = followUpDate;
+
+    if (notes) {
+      if (Array.isArray(notes)) {
+        if (notes.length > 0) lead.notes.push(...notes);
+      } else {
+        lead.notes.push(notes);
+      }
+    }
+
+    if (followUpDate && followUpDate !== '-') {
+      lead.followUpDate = followUpDate;
+    }
+
 
     await lead.save();
+
 
     // Trigger immediate alert for 'Call not reachable'
     if (status === 'Call not reachable' && lead.sourceAgent) {
@@ -69,10 +189,27 @@ exports.updateLeadStatus = async (req, res, next) => {
     // Convert Lead to Student securely automatically immediately on "Interested", "Qualified", or "Ready to Apply"
     const promotionStatuses = ['Interested', 'Qualified', 'Ready to Apply'];
     if (promotionStatuses.includes(status)) {
-      // Check if student already exists to avoid duplicates
       const existingStudent = await Student.findOne({ phone: lead.phone });
       if (existingStudent) {
-        return res.status(200).json({ success: true, message: 'Status updated, student record already exists', data: lead });
+        // Merge notes and remove the duplicate lead
+        if (lead.notes && lead.notes.length > 0) {
+          existingStudent.notes.push(...lead.notes);
+          await existingStudent.save();
+        }
+        await Lead.findByIdAndDelete(lead._id);
+
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Lead merged into existing student', 
+          data: { 
+            lead: { ...lead.toObject(), status: 'Moved to Student' }, 
+            student: existingStudent,
+            credentials: {
+              gxId: existingStudent.gxId,
+              password: '(Already Set)'
+            }
+          } 
+        });
       }
 
       const studentGxId = await generateGxId('STUDENT');
@@ -94,13 +231,15 @@ exports.updateLeadStatus = async (req, res, next) => {
         name: lead.name,
         email: lead.email || user.email,
         phone: lead.phone,
-        country: qualificationDetails.country || 'Unknown', 
+        interestedCountry: qualificationDetails.country || qualificationDetails.interestCountry || 'Unknown', 
+        interestedProgram: qualificationDetails.course,
         gxId: studentGxId,
         userId: user._id,
         sourceAgent: lead.sourceAgent ? lead.sourceAgent._id : undefined,
+        assignedAgent: lead.sourceAgent ? lead.sourceAgent._id : undefined,
         handledByTelecaller: lead.handledByTelecaller,
-        pipelineStage: 'New',
-        stageHistory: [{ stage: 'New', timestamp: new Date() }],
+        pipelineStage: status,
+        stageHistory: [{ stage: status, timestamp: new Date() }],
         educationBackground: qualificationDetails.educationBackground,
         percentage: qualificationDetails.percentage,
         passingYear: qualificationDetails.passingYear,
@@ -124,7 +263,9 @@ exports.updateLeadStatus = async (req, res, next) => {
       }
 
       // Notify the student with their new credentials
-      const { triggerNotification } = require('../notification/service');
+      const { triggerNotification, sendWelcomeEmail } = require('../notification/service');
+
+      // Queue templated app/email/whatsapp notification
       triggerNotification({
         userId: user._id,
         eventKey: 'PROMOTION_SUCCESS',
@@ -135,6 +276,21 @@ exports.updateLeadStatus = async (req, res, next) => {
         },
         channels: ['app', 'email', 'whatsapp']
       }).catch(console.error);
+
+      // Also send explicit welcome credentials email
+      // (non-blocking; do not fail promotion if email fails)
+      try {
+        await sendWelcomeEmail({
+          email: user.email,
+          name: user.name,
+          gxId: studentGxId,
+          password: temporaryPassword,
+          role: user.role,
+        });
+      } catch (e) {
+        console.error('Failed to send welcome email on promotion:', e.message);
+      }
+
 
       return res.status(200).json({ 
         success: true, 
@@ -202,20 +358,36 @@ exports.getMyLeads = async (req, res, next) => {
 exports.getTelecallerQueue = async (req, res, next) => {
   try {
     const now = new Date();
-    
+    const CALL_NOT_ANSWERED = 'Call not answered';
+
+    // Today boundaries in server local timezone
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+
     // 1. New Leads (Uncontacted / Lead received status completely fresh)
     const newLeads = await Lead.find({ status: 'Lead received' }).sort({ createdAt: 1 });
 
-    // 2. Missed Follow ups (FollowUp date is in the past)
-    const missedFollowups = await Lead.find({ 
-      followUpDate: { $lt: now },
-      status: { $nin: ['Interested', 'Lead received'] } 
+    // 2. Missed Follow ups (overdue / due-today queue)
+    // - Explicitly include "Call not answered" in missedFollowups
+    // - Also include other non-terminal followups based on date
+    const missedFollowups = await Lead.find({
+      $or: [
+        { status: CALL_NOT_ANSWERED },
+        {
+          followUpDate: { $lt: endOfToday },
+          status: { $nin: ['Interested', 'Lead received', CALL_NOT_ANSWERED] },
+        },
+      ],
     }).sort({ followUpDate: 1 });
 
-    // 3. Old Leads (Everything else that isn't completely disqualified)
-    const oldLeads = await Lead.find({ 
+    // 3. Old Leads (upcoming)
+    // Must NOT filter out "Call not answered"; keep it eligible.
+    const oldLeads = await Lead.find({
       status: { $nin: ['Lead received', 'Interested', 'Not interested'] },
-      followUpDate: { $gte: now } 
+      followUpDate: { $gte: startOfToday },
     }).sort({ lastInteractionDate: 1 });
 
     res.status(200).json({
@@ -223,8 +395,8 @@ exports.getTelecallerQueue = async (req, res, next) => {
       data: {
         newLeads,
         missedFollowups,
-        oldLeads
-      }
+        oldLeads,
+      },
     });
   } catch (error) {
     next(error);

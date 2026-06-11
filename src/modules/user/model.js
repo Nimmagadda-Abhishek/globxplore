@@ -62,6 +62,7 @@ const userSchema = new mongoose.Schema({
     secondaryNumber: { type: String },
     locationUrl: { type: String },
     businessBoardPhoto: { type: String },
+    verificationPhoto: { type: String },
     mouFile: { type: String },
     accountDetails: { type: String },
     mouStatus: { 

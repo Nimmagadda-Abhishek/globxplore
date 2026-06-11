@@ -41,6 +41,8 @@ exports.createAgent = async (amUser, agentData) => {
   const gxId = await generateGxId('AGENT');
   const temporaryPassword = crypto.randomBytes(4).toString('hex');
 
+  const determinedStatus = agentData.status === 'Interested' ? 'confirmed' : (agentData.status === 'Not Interested' ? 'not_interested' : (agentData.status === 'Revisit' ? 'revisit' : 'not_visited'));
+
   const agent = await User.create({
     gxId,
     role: 'AGENT',
@@ -54,15 +56,17 @@ exports.createAgent = async (amUser, agentData) => {
       customerWhatsappNumber: agentData.whatsapp,
       secondaryNumber: agentData.secondaryNumber,
       locationUrl: agentData.locationUrl,
+      businessBoardPhoto: agentData.businessBoardPhoto,
+      verificationPhoto: agentData.verificationPhoto,
       businessAreaName: agentData.businessArea,
       street: agentData.street,
       lineNumber: agentData.lineNumber,
       natureOfBusiness: agentData.natureOfBusiness,
       mouStatus: agentData.mouStatus === 'completed' ? 'Completed' : 'Not Completed',
-      accountDetails: JSON.stringify(agentData.accountDetails),
-      agentStatus: 'not_visited',
+      accountDetails: typeof agentData.accountDetails === 'string' ? agentData.accountDetails : JSON.stringify(agentData.accountDetails || {}),
+      agentStatus: determinedStatus,
       statusHistory: [{
-        status: 'not_visited',
+        status: determinedStatus,
         updatedBy: amUser._id
       }]
     }
@@ -113,6 +117,22 @@ exports.updateAgentStatus = async (amUserId, agentId, status) => {
     status,
     updatedBy: amUserId
   });
+
+  if (status === 'confirmed') {
+    const crypto = require('crypto');
+    const temporaryPassword = crypto.randomBytes(4).toString('hex');
+    agent.password = temporaryPassword;
+    agent._tempPassword = temporaryPassword;
+    
+    const { sendWelcomeEmail } = require('../notification/service');
+    sendWelcomeEmail({
+      email: agent.email,
+      name: agent.name,
+      gxId: agent.gxId,
+      password: temporaryPassword,
+      role: 'Agent'
+    }).catch(err => console.error('Failed to send welcome email:', err));
+  }
 
   return await agent.save();
 };

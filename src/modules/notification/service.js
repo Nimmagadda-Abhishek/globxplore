@@ -42,21 +42,36 @@ exports.triggerNotification = async ({ userId, eventKey, data, channels = ['app'
         });
       }
 
-      // 2. Header Parameter (Required since you added Image Headers to Meta templates)
-      const headerImage = data.imageUrl || data.image || process.env.DEFAULT_HEADER_IMAGE;
-      
-      if (headerImage) {
+      // 2. Header Parameter
+      if (template.headerType === 'text') {
+        const headerText = data.headerText || template.headerText || 'Notice';
         components.push({
           type: 'header',
           parameters: [
             {
-              type: 'image',
-              image: {
-                link: headerImage
-              }
+              type: 'text',
+              text: headerText
             }
           ]
         });
+      } else if (template.headerType === 'none') {
+        // Do not inject any header
+      } else {
+        // Fallback or explicit image header
+        const headerImage = data.imageUrl || data.image || process.env.DEFAULT_HEADER_IMAGE;
+        if (headerImage) {
+          components.push({
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: headerImage
+                }
+              }
+            ]
+          });
+        }
       }
     }
 
@@ -168,4 +183,31 @@ exports.sendEmail = async (to, subject, html) => {
 exports.sendWhatsApp = async (to, text) => {
   const WhatsAppProvider = require('./whatsapp.provider');
   return await WhatsAppProvider.sendMessage(to, text);
+};
+
+/**
+ * Send a welcome email with login credentials to a newly created user.
+ * @param {Object} params
+ * @param {string} params.email      - Recipient email address
+ * @param {string} params.name       - User's full name
+ * @param {string} params.gxId       - Assigned GX ID
+ * @param {string} params.password   - Auto-generated temporary password (plain-text, before hashing)
+ * @param {string} params.role       - User role label (e.g. 'TELECALLER')
+ */
+exports.sendWelcomeEmail = async ({ email, name, gxId, password, role }) => {
+  try {
+    const { templates } = require('./notification.templates');
+    const template = templates['WELCOME_CREDENTIALS'];
+    if (!template || typeof template.email !== 'function') {
+      console.warn('WELCOME_CREDENTIALS email template not found.');
+      return;
+    }
+
+    const html = template.email({ name, gxId, password, role });
+    await exports.sendEmail(email, template.title, html);
+    console.log(`Welcome email sent to ${email} (${gxId})`);
+  } catch (err) {
+    // Non-blocking — never fail user creation because of email
+    console.error('Failed to send welcome email:', err.message);
+  }
 };

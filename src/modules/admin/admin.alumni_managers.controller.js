@@ -1,5 +1,6 @@
 const User = require('../user/model');
 const authService = require('../auth/service');
+const { sendWelcomeEmail } = require('../notification/service');
 
 /**
  * Create a new Alumni Manager.
@@ -20,12 +21,17 @@ exports.createAlumniManager = async (req, res, next) => {
       phone
     });
 
+    // Send welcome email with credentials (non-blocking)
+    if (user._autoPassword) {
+      sendWelcomeEmail({ email, name, gxId: user.gxId, password: user._autoPassword, role: 'Alumni Manager' });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Alumni Manager created successfully',
       data: {
         gxId: user.gxId,
-        password: user._autoPassword // Temporary password for admin to share
+        password: user._autoPassword
       }
     });
   } catch (error) {

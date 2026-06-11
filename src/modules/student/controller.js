@@ -209,9 +209,10 @@ exports.addMessage = async (req, res, next) => {
     }
 
     // 1. Push new message object
+    const isStudent = req.user.role === 'STUDENT';
     const newMessage = { 
-      sender: 'agent', 
-      agentId: agentId || req.user._id, 
+      sender: isStudent ? 'student' : 'agent', 
+      agentId: isStudent ? undefined : (agentId || req.user._id), 
       text: finalContent, 
       timestamp: new Date(), 
       status: 'sent' 
@@ -244,7 +245,7 @@ exports.addMessage = async (req, res, next) => {
     // 4. Emit Socket.io event
     if (io) {
       io.to(`student_${student._id}`).emit('new_message', { 
-        sender: 'agent', 
+        sender: isStudent ? 'student' : 'agent', 
         text: finalContent, 
         timestamp: newMessage.timestamp 
       });
@@ -354,6 +355,37 @@ exports.deleteStudent = async (req, res, next) => {
     }
 
     res.status(200).json({ success: true, message: 'Student deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Request documents from a student.
+ * Sends notifications via WhatsApp, Email, and In-App.
+ */
+exports.requestDocuments = async (req, res, next) => {
+  try {
+    const student = await Student.findById(req.params.id).populate('userId');
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    if (!student.userId) {
+      return res.status(400).json({ success: false, message: 'Student is not linked to a user account' });
+    }
+
+    await notificationService.triggerNotification({
+      userId: student.userId._id,
+      eventKey: 'DOCUMENTS_REQUIRED',
+      data: {
+        name: student.name,
+        stage: student.pipelineStage || 'Application'
+      },
+      channels: ['app', 'whatsapp', 'email']
+    });
+
+    res.status(200).json({ success: true, message: 'Document request notifications sent successfully' });
   } catch (error) {
     next(error);
   }

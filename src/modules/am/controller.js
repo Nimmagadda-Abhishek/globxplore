@@ -51,6 +51,14 @@ exports.updateProfile = async (req, res, next) => {
  */
 exports.createAgent = async (req, res, next) => {
   try {
+    if (req.files) {
+      if (req.files.businessBoardPhoto && req.files.businessBoardPhoto[0]) {
+        req.body.businessBoardPhoto = req.files.businessBoardPhoto[0].location;
+      }
+      if (req.files.verificationPhoto && req.files.verificationPhoto[0]) {
+        req.body.verificationPhoto = req.files.verificationPhoto[0].location;
+      }
+    }
     const agent = await amService.createAgent(req.user, req.body);
     res.status(201).json({
       success: true,
@@ -144,7 +152,14 @@ exports.updateAgentStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
     const agent = await amService.updateAgentStatus(req.user._id, req.params.id, status);
-    res.status(200).json({ success: true, message: 'Status updated', data: agent });
+    
+    let responseData = { agent };
+    if (agent._tempPassword) {
+      responseData.generatedPassword = agent._tempPassword;
+      responseData.gxId = agent.gxId;
+    }
+    
+    res.status(200).json({ success: true, message: 'Status updated', data: responseData });
   } catch (error) {
     next(error);
   }

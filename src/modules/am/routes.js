@@ -3,6 +3,7 @@ const router = express.Router();
 const amController = require('./controller');
 const { protect } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/role');
+const upload = require('../../middleware/upload');
 
 // All routes are protected and restricted to AGENT_MANAGER
 router.use(protect);
@@ -16,7 +17,7 @@ router.put('/change-password', amController.changePassword);
 
 router.route('/agents')
   .get(amController.getAgents)
-  .post(amController.createAgent);
+  .post(upload.fields([{ name: 'businessBoardPhoto', maxCount: 1 }, { name: 'verificationPhoto', maxCount: 1 }]), amController.createAgent);
 
 router.get('/agents/search', amController.searchAgents);
 router.get('/agents/map', amController.getMapData);

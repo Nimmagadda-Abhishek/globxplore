@@ -10,7 +10,7 @@ router.use(protect);
 router.get('/profile', userController.getProfile);
 router.put('/profile', userController.updateProfile);
 
-router.post('/agent', authorize('ADMIN', 'AGENT_MANAGER'), upload.single('businessBoardPhoto'), userController.createAgent);
+router.post('/agent', authorize('ADMIN', 'AGENT_MANAGER'), upload.fields([{ name: 'businessBoardPhoto', maxCount: 1 }, { name: 'verificationPhoto', maxCount: 1 }]), userController.createAgent);
 router.patch('/agent/update-profile', authorize('AGENT'), upload.single('mouFile'), userController.updateAgentProfile);
 router.patch('/agent/:id/status', authorize('ADMIN', 'AGENT_MANAGER'), userController.updateAgentStatus);
 router.get('/agents', authorize('ADMIN', 'AGENT_MANAGER'), userController.getAgents);

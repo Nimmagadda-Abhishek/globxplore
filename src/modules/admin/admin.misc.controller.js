@@ -1,6 +1,45 @@
 const { ActivityLog } = require('../activity/model');
 const CompanyDocument = require('../document/companyDocument.model');
 
+// --- Alerts APIs ---
+exports.getAlerts = async (req, res, next) => {
+  try {
+    const Notification = require('../notification/model');
+    const { DateTime } = require('luxon');
+
+    const notifications = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    const alerts = notifications.map(notif => {
+      // Map priority to title case
+      const priorityStr = notif.priority || 'medium';
+      const priority = priorityStr.charAt(0).toUpperCase() + priorityStr.slice(1);
+
+      // Map types roughly to frontend types if needed, else capitalize
+      let type = 'System';
+      if (notif.type === 'reminder') type = 'Follow-up';
+      else if (notif.type === 'chat') type = 'Call';
+      else if (notif.type === 'payment') type = 'Task';
+      else if (notif.type === 'status') type = 'System';
+      else if (notif.type === 'escalation') type = 'Deadline';
+
+      return {
+        id: notif._id,
+        title: notif.title,
+        type: type,
+        priority: priority,
+        desc: notif.message,
+        time: DateTime.fromJSDate(notif.createdAt).toRelative() || 'Just now',
+      };
+    });
+
+    res.status(200).json({ success: true, alerts });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // --- Partner Offer APIs ---
 exports.getOffers = async (req, res, next) => {
   // Logic to fetch from Offer model (assuming it exists in src/modules/offer)

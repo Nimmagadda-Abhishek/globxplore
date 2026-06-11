@@ -30,3 +30,43 @@ exports.createOffer = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Activate/deactivate an offer (Admin only)
+ * PATCH /api/offer/:id/active
+ * body: { isActive: true|false }
+ */
+exports.setOfferActive = async (req, res, next) => {
+  try {
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'isActive must be a boolean value'
+      });
+    }
+
+    const offer = await Offer.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isActive } },
+      { new: true }
+    );
+
+    if (!offer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Offer not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Offer ${isActive ? 'activated' : 'deactivated'} successfully`,
+      data: offer
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

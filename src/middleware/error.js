@@ -27,7 +27,19 @@ exports.errorHandler = (err, req, res, next) => {
 
   // Mongoose duplicate key
   if (err.code === 11000) {
-    const message = 'Duplicate field value entered';
+    let message = 'Duplicate field value entered';
+    if (err.keyValue) {
+      const field = Object.keys(err.keyValue)[0];
+      const value = err.keyValue[field];
+      let fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+      
+      // Better formatting for common fields
+      if (field === 'phone') fieldName = 'Phone number';
+      if (field === 'email') fieldName = 'Email address';
+      if (field === 'gxId') fieldName = 'GX ID';
+      
+      message = `${fieldName} '${value}' already exists`;
+    }
     error = { message, status: 400 };
   }
 

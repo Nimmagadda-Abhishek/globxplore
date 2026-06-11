@@ -35,7 +35,11 @@ exports.protect = async (req, res, next) => {
       const session = await Session.findOne({ userId: req.user._id, logoutTime: { $exists: false } }).sort({ createdAt: -1 });
 
       if (!session) {
-        return res.status(401).json({ success: false, message: 'Session expired or logged out. Please login again.' });
+        return res.status(401).json({
+          success: false,
+          code: 'SESSION_EXPIRED',
+          message: 'Session expired or logged out. Please login again.',
+        });
       }
 
       const now = new Date();
@@ -46,20 +50,26 @@ exports.protect = async (req, res, next) => {
         session.logoutTime = now;
         session.status = 'logged_out';
         await session.save();
-        return res.status(401).json({ success: false, message: 'Session expired due to inactivity. Please login again.' });
+        return res.status(401).json({
+          success: false,
+          code: 'SESSION_EXPIRED',
+          message: 'Session expired due to inactivity. Please login again.',
+        });
       }
 
       // Keep the session alive on any authenticated request outside explicit heartbeat polling
       const isHeartbeatRoute = req.baseUrl === '/api/activity' && req.path === '/heartbeat';
       if (!isHeartbeatRoute) {
-        session.lastHeartbeat = now;
-        session.status = 'active';
-        await session.save();
+        await Session.updateOne(
+          { _id: session._id },
+          { $set: { lastHeartbeat: now, status: 'active' } }
+        );
       }
     }
 
     next();
   } catch (error) {
+    console.error('Authentication middleware error:', error);
     return res.status(401).json({ success: false, message: 'Invalid token' });
   }
 };

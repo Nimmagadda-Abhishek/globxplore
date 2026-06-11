@@ -25,4 +25,4 @@ const studentRequestSchema = new mongoose.Schema({
   resolvedAt: Date,
 }, { timestamps: true });
 
-module.exports = mongoose.model('StudentRequest', studentRequestSchema);
+module.exports = mongoose.models.StudentRequest || mongoose.model('StudentRequest', studentRequestSchema);

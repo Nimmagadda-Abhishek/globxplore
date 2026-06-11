@@ -7,6 +7,19 @@ const Offer = require('../offer/model');
 const authService = require('../auth/service');
 const { generateGxId } = require('../../utils/gxIdGenerator');
 
+// Utility for Tier Calculation
+const calculateAgentTier = (totalStudents) => {
+  if (totalStudents < 5) {
+    return { name: 'Starter - Bronze', badge: 'Bronze', description: 'Basic', bonus: 'Regular Commission', nextTierAt: 5, currentCount: totalStudents };
+  } else if (totalStudents <= 15) {
+    return { name: 'Growth - Silver', badge: 'Silver', description: 'Advanced', bonus: 'Additional + 5K per student', nextTierAt: 16, currentCount: totalStudents };
+  } else if (totalStudents <= 30) {
+    return { name: 'Pro - Gold', badge: 'Gold', description: 'Professional', bonus: 'Additional + 7K per student', nextTierAt: 31, currentCount: totalStudents };
+  } else {
+    return { name: 'Elite - Platinum', badge: 'Platinum', description: 'Ultimate', bonus: 'Additional +10K per all the students from starting', nextTierAt: null, currentCount: totalStudents };
+  }
+};
+
 // 1. Authentication
 
 exports.getMe = async (userId) => {
@@ -18,10 +31,19 @@ exports.getMe = async (userId) => {
 // 2. Dashboard
 exports.getDashboardSummary = async (userId) => {
   const totalStudents = await Student.countDocuments({ sourceAgent: userId });
-  const activeApplications = await Student.countDocuments({ 
-    sourceAgent: userId, 
-    pipelineStage: { $nin: ['Alumni Tracking', 'Review and Testimonials'] }
-  });
+  
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const enrolledThisMonth = await Student.countDocuments({ sourceAgent: userId, createdAt: { $gte: startOfMonth } });
+  const visaApproved = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Visa Approved' });
+  const activeApplications = await Student.countDocuments({ sourceAgent: userId, pipelineStage: { $in: ['Application', 'Offer Letter', 'Visa Process'] } });
+  const totalLeadsQualified = await Lead.countDocuments({ sourceAgent: userId, status: 'Qualified' });
+  const applicationStarted = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Application' });
+  const offerReceived = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Offer Letter' });
+  const visaFailed = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Visa Failed' });
+  const approved = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Approved' });
+  const enrolledStudents = await Student.countDocuments({ sourceAgent: userId, pipelineStage: 'Enrolled' });
 
   const commissions = await CommissionLog.find({ agentId: userId });
   let totalCommission = 0;
@@ -32,20 +54,31 @@ exports.getDashboardSummary = async (userId) => {
 
   commissions.forEach(c => {
     totalCommission += c.amountEarned;
-    if (c.status === 'Paid' && c.updatedAt.getMonth() === currentMonth && c.updatedAt.getFullYear() === currentYear) {
+    // Calculate earnings generated this month regardless of paid/pending status
+    if (c.createdAt.getMonth() === currentMonth && c.createdAt.getFullYear() === currentYear) {
       thisMonthEarnings += c.amountEarned;
     }
   });
 
-  const conversionRate = totalStudents > 0 ? Math.round(((totalStudents - activeApplications) / totalStudents) * 100) : 0; // Simplified logic
+  const conversionRate = totalStudents > 0 ? Math.round((enrolledStudents / totalStudents) * 100) : 0;
+
+  const tierDetails = calculateAgentTier(totalStudents);
 
   return {
     totalStudents,
     activeApplications,
     totalCommission,
     thisMonthEarnings,
-    pendingFollowUps: 0, // Simplified
-    conversionRate
+    pendingFollowUps: 0,
+    conversionRate,
+    tierDetails,
+    enrolledThisMonth,
+    visaApproved,
+    totalLeadsQualified,
+    applicationStarted,
+    offerReceived,
+    visaFailed,
+    approved
   };
 };
 
@@ -75,7 +108,7 @@ exports.createStudent = async (agentId, agentGxId, data) => {
     name: data.fullName,
     phone: data.contact,
     email: data.email,
-    country: data.country,
+    interestedCountry: data.country,
     sourceAgent: agentId,
     assignedAgent: agentId,
     createdBy: agentId,
@@ -98,11 +131,28 @@ exports.getStudents = async (agentId, query) => {
   const students = await Student.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 });
   const total = await Student.countDocuments(filter);
 
+  // Calculate stats for the requested metrics
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const stats = {
+    totalStudents: await Student.countDocuments({ sourceAgent: agentId }),
+    enrolledThisMonth: await Student.countDocuments({ sourceAgent: agentId, createdAt: { $gte: startOfMonth } }),
+    visaApproved: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: 'Visa Approved' }),
+    activeApplications: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: { $in: ['Application', 'Offer Letter', 'Visa Process'] } }),
+    totalLeadsQualified: await Lead.countDocuments({ sourceAgent: agentId, status: 'Qualified' }),
+    applicationStarted: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: 'Application' }),
+    offerReceived: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: 'Offer Letter' }),
+    visaFailed: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: 'Visa Failed' }),
+    approved: await Student.countDocuments({ sourceAgent: agentId, pipelineStage: 'Approved' })
+  };
+
   return {
     students,
     total,
     page,
-    pages: Math.ceil(total / limit)
+    pages: Math.ceil(total / limit),
+    stats
   };
 };
 
@@ -180,13 +230,19 @@ exports.getCommissionSummary = async (agentId) => {
     countryWise[c.country] += c.amountEarned;
   });
 
-  return { total, paid, pending, countryWise };
+  return { total, paid, pending, upcoming: pending, countryWise };
 };
 
 // 6. Business Profile
 exports.getBusinessProfile = async (userId) => {
   const user = await User.findById(userId);
-  return user.agentDetails || {};
+  const totalStudents = await Student.countDocuments({ sourceAgent: userId });
+  const tierDetails = calculateAgentTier(totalStudents);
+  
+  return {
+    ...(user.agentDetails || {}),
+    tierDetails
+  };
 };
 
 exports.updateBusinessProfile = async (userId, data) => {
@@ -344,7 +400,7 @@ exports.createLead = async (agentId, data) => {
     name: data.name,
     phone: data.phone,
     email: data.email,
-    source: 'Direct Referrals',
+    source: 'Agent Lead',
     sourceAgent: agentId,
     assignedTo: agentId,
     status: 'Lead received'

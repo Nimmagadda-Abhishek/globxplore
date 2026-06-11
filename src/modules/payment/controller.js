@@ -22,17 +22,29 @@ exports.createPaymentRequest = async (req, res, next) => {
     // Notify Student
     try {
       const student = await Student.findById(studentId).populate('userId');
-      if (student && student.userId) {
-        await notificationService.triggerNotification({
-          userId: student.userId._id,
-          eventKey: 'PAYMENT_REQUESTED',
-          data: {
-            name: student.name,
-            amount: amount,
-            title: title,
-            actionUrl: `/student/payments`
+      if (student) {
+        if (student.userId) {
+          await notificationService.triggerNotification({
+            userId: student.userId._id,
+            eventKey: 'PAYMENT_REQUESTED',
+            data: {
+              name: student.name,
+              amount: amount,
+              title: title,
+              actionUrl: `/student/payments`
+            }
+          });
+        }
+        
+        // Send WhatsApp Message
+        const WhatsAppProvider = require('../../providers/WhatsAppProvider');
+        if (student.phone) {
+          const waPhone = WhatsAppProvider.normalizePhone(student.phone);
+          if (waPhone) {
+            const message = `Hello ${student.name},\n\nA new payment request for "${title}" of amount ₹${amount} has been generated for you.\nPlease check your student portal to complete the payment.\n\nThank you,\nGlobXplorer`;
+            await WhatsAppProvider.sendRawNotification(waPhone, message);
           }
-        });
+        }
       }
     } catch (notifError) {
       console.error('Failed to send payment request notification:', notifError);
