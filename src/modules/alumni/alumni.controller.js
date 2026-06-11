@@ -70,6 +70,9 @@ exports.getDashboardSummary = async (req, res, next) => {
     // 7. Referrals
     const referralStats = await alumniService.getReferralSummary(userId);
 
+    // 8. PR Tracker
+    const prStatus = await alumniService.getPRStatus(userId);
+
     res.status(200).json({
       totalEarned,
       activeServiceTypes,
@@ -78,7 +81,8 @@ exports.getDashboardSummary = async (req, res, next) => {
       studentsHelped,
       profileCompletion,
       referralEarnings: referralStats.commissionEarned,
-      referralCount: referralStats.referralCount
+      referralCount: referralStats.referralCount,
+      prStatus
     });
   } catch (error) { next(error); }
 };
@@ -414,6 +418,81 @@ exports.getJobPerformance = async (req, res, next) => {
     res.status(200).json({ stats });
   } catch (error) { next(error); }
 };
+
+exports.getJobApplications = async (req, res, next) => {
+  try {
+    const { JobApplication } = require('./alumni.model');
+    const applications = await JobApplication.find({ alumniId: req.user._id || req.user.id })
+      .populate('jobId', 'title location status')
+      .populate('studentId', 'name email phone')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: applications });
+  } catch (error) { next(error); }
+};
+
+exports.updateApplicationStatus = async (req, res, next) => {
+  try {
+    const { JobApplication } = require('./alumni.model');
+    const { status } = req.body;
+    const application = await JobApplication.findOneAndUpdate(
+      { _id: req.params.id, alumniId: req.user._id || req.user.id },
+      { status },
+      { new: true }
+    );
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found or unauthorized' });
+    res.status(200).json({ success: true, message: 'Status updated', data: application });
+  } catch (error) { next(error); }
+};
+
+exports.getApplicationChat = async (req, res, next) => {
+  try {
+    const { AlumniChatMessage, JobApplication } = require('./model');
+    const JobAppModel = require('./alumni.model').JobApplication;
+    const applicationId = req.params.id;
+    const userId = req.user._id || req.user.id;
+
+    const application = await JobAppModel.findById(applicationId);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+
+    if (application.alumniId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const messages = await AlumniChatMessage.find({ applicationId })
+      .populate('sender', 'name')
+      .populate('receiver', 'name')
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({ success: true, data: messages });
+  } catch (error) { next(error); }
+};
+
+exports.sendApplicationChatMessage = async (req, res, next) => {
+  try {
+    const { AlumniChatMessage, JobApplication } = require('./model');
+    const JobAppModel = require('./alumni.model').JobApplication;
+    const applicationId = req.params.id;
+    const userId = req.user._id || req.user.id;
+    const { message } = req.body;
+
+    const application = await JobAppModel.findById(applicationId);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+
+    if (application.alumniId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const chatMsg = await AlumniChatMessage.create({
+      sender: userId,
+      receiver: application.studentId,
+      applicationId,
+      message
+    });
+
+    res.status(201).json({ success: true, data: chatMsg });
+  } catch (error) { next(error); }
+};
+
 
 // 8. Training
 exports.requestLanguageTraining = async (req, res, next) => {

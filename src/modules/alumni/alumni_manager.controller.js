@@ -39,13 +39,18 @@ exports.getDashboardSummary = async (req, res, next) => {
     const pendingServiceRequests = await ServiceRequest.countDocuments({ status: 'Pending' });
     const activeAlumni = await User.countDocuments({ role: 'ALUMNI', isActive: true });
 
+    const registrations = await AlumniRegistration.find().sort({ createdAt: -1 }).limit(10);
+    const serviceRequests = await ServiceRequest.find().populate('user', 'name email gxId').populate('alumniId', 'name').sort({ createdAt: -1 }).limit(10);
+
     res.status(200).json({
       success: true,
       data: {
         pendingRegistrations,
         pendingStudentRequests,
         pendingServiceRequests,
-        activeAlumni
+        activeAlumni,
+        registrations,
+        serviceRequests
       }
     });
   } catch (error) {
@@ -200,6 +205,19 @@ exports.approveAlumniAccount = async (req, res, next) => {
       { new: true }
     );
     if (!user) return res.status(404).json({ success: false, message: 'Alumni not found' });
+
+    // Send email notification about account approval
+    try {
+      await notificationService.triggerNotification({
+        userId: user._id,
+        eventKey: 'ACCOUNT_READY',
+        data: { name: user.name },
+        channels: ['email']
+      });
+    } catch (err) {
+      console.error('Failed to send account approval email:', err.message);
+    }
+
     res.status(200).json({ success: true, message: 'Alumni approved successfully', data: user });
   } catch (error) {
     next(error);
@@ -503,3 +521,18 @@ exports.transferFunds = async (req, res, next) => {
     next(error);
   }
 };
+
+// --- Jobs APIs ---
+
+exports.getAllJobApplications = async (req, res, next) => {
+  try {
+    const { JobApplication } = require('./alumni.model');
+    const applications = await JobApplication.find({})
+      .populate('jobId', 'title location status')
+      .populate('studentId', 'name email phone')
+      .populate('alumniId', 'name email')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: applications });
+  } catch (error) { next(error); }
+};
+

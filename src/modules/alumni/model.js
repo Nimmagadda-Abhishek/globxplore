@@ -56,6 +56,7 @@ const alumniChatMessageSchema = new mongoose.Schema({
   receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   serviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'AlumniService' },
   bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'ServiceRequest' },
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication' },
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false },
 }, { timestamps: true });

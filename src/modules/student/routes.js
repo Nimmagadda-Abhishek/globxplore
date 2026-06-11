@@ -28,6 +28,13 @@ router.get('/subscriptions/plans', protect, authorize('STUDENT'), studentPortalC
 router.post('/subscription/order', protect, authorize('STUDENT'), studentPortalController.createOrder);
 router.post('/subscription/verify', protect, authorize('STUDENT'), studentPortalController.verifyPayment);
 
+// Jobs
+router.get('/jobs', protect, authorize('STUDENT'), studentPortalController.getOpenJobs);
+router.post('/jobs/:id/apply', protect, authorize('STUDENT'), studentPortalController.applyForJob);
+router.get('/applications', protect, authorize('STUDENT'), studentPortalController.getMyApplications);
+router.get('/applications/:id/chat', protect, authorize('STUDENT'), studentPortalController.getApplicationChat);
+router.post('/applications/:id/chat', protect, authorize('STUDENT'), studentPortalController.sendApplicationChatMessage);
+
 
 // --- STAFF MANAGEMENT ROUTES (Admin/Counsellor Facing) ---
 router.post('/', protect, authorize('ADMIN', 'AGENT_MANAGER', 'AGENT', 'COUNSELLOR', 'TELECALLER'), requireConfirmedAgent, staffController.createStudent);

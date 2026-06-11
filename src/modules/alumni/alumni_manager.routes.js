@@ -63,6 +63,9 @@ router.get('/community/posts', alumniController.getCommunityFeed);
 // 11. Reports APIs
 router.get('/reports/export', alumniController.exportReports);
 
+// 12. Jobs APIs
+router.get('/jobs/applications', alumniController.getAllJobApplications);
+
 // --- 7. Payout APIs ---
 router.get('/payouts', alumniController.getPayoutRequests);
 router.patch('/payouts/:id/transfer', alumniController.transferFunds);

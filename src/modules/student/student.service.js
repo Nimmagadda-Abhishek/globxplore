@@ -76,7 +76,28 @@ exports.approveRegistration = async (registrationId, adminUser) => {
   registration.status = 'approved';
   await registration.save();
 
-  // Send WhatsApp/Email logic would go here
+  // Send Welcome Email with credentials
+  const notificationService = require('../notification/service');
+  await notificationService.sendWelcomeEmail({
+    email: user.email,
+    name: user.name,
+    gxId: user.gxId,
+    password: tempPassword,
+    role: 'Student'
+  });
+
+  // Send WhatsApp Notification
+  try {
+    await notificationService.triggerNotification({
+      userId: user._id,
+      eventKey: 'ACCOUNT_READY',
+      data: { name: user.name },
+      channels: ['whatsapp']
+    });
+  } catch (err) {
+    console.error('Failed to trigger WhatsApp notification:', err.message);
+  }
+
   // Return credentials for response (admin can see or system can send)
   return { user, tempPassword, student };
 };

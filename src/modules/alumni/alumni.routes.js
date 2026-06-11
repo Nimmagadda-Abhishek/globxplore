@@ -57,6 +57,10 @@ router.patch('/requests/:id/reject', alumniController.rejectRequest);
 router.get('/jobs', alumniController.getJobs);
 router.post('/jobs', alumniController.createJob);
 router.get('/jobs/performance', alumniController.getJobPerformance);
+router.get('/jobs/applications', alumniController.getJobApplications);
+router.patch('/jobs/applications/:id/status', alumniController.updateApplicationStatus);
+router.get('/jobs/applications/:id/chat', alumniController.getApplicationChat);
+router.post('/jobs/applications/:id/chat', alumniController.sendApplicationChatMessage);
 
 // 8. Training
 router.post('/training/language-request', alumniController.requestLanguageTraining);

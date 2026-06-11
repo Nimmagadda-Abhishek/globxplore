@@ -57,11 +57,21 @@ const ambassadorApplicationSchema = new mongoose.Schema({
   applicationDetails: { type: String }
 }, { timestamps: true });
 
+const jobApplicationSchema = new mongoose.Schema({
+  jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'AlumniJob', required: true },
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  alumniId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { type: String, enum: ['Pending', 'Reviewed', 'Accepted', 'Rejected'], default: 'Pending' },
+  resumeUrl: { type: String },
+  coverLetter: { type: String }
+}, { timestamps: true });
+
 module.exports = {
   AlumniService: mongoose.model('AlumniService', alumniServiceSchema),
   AlumniJob: mongoose.model('AlumniJob', alumniJobSchema),
   AlumniCareerProgress: mongoose.model('AlumniCareerProgress', alumniCareerProgressSchema),
   AlumniPRStatus: mongoose.model('AlumniPRStatus', alumniPRStatusSchema),
   AlumniReferral: mongoose.model('AlumniReferral', alumniReferralSchema),
-  AmbassadorApplication: mongoose.model('AmbassadorApplication', ambassadorApplicationSchema)
+  AmbassadorApplication: mongoose.model('AmbassadorApplication', ambassadorApplicationSchema),
+  JobApplication: mongoose.model('JobApplication', jobApplicationSchema)
 };

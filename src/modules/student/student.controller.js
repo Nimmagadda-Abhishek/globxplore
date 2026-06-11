@@ -230,3 +230,107 @@ exports.rejectStudent = async (req, res, next) => {
     next(error);
   }
 };
+
+// --- Jobs Section ---
+
+exports.getOpenJobs = async (req, res, next) => {
+  try {
+    const { AlumniJob } = require('../alumni/alumni.model');
+    const jobs = await AlumniJob.find({ status: 'Open' })
+      .populate('alumniId', 'name email alumniDetails.currentWorkingRole alumniDetails.university')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: jobs });
+  } catch (error) { next(error); }
+};
+
+exports.applyForJob = async (req, res, next) => {
+  try {
+    const { AlumniJob, JobApplication } = require('../alumni/alumni.model');
+    const jobId = req.params.id;
+    const { resumeUrl, coverLetter } = req.body;
+
+    const job = await AlumniJob.findById(jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (job.status !== 'Open') return res.status(400).json({ success: false, message: 'Job is no longer open' });
+
+    // Check if already applied
+    const existing = await JobApplication.findOne({ jobId, studentId: req.user._id });
+    if (existing) return res.status(400).json({ success: false, message: 'You have already applied for this job' });
+
+    const application = await JobApplication.create({
+      jobId,
+      studentId: req.user._id,
+      alumniId: job.alumniId,
+      resumeUrl,
+      coverLetter
+    });
+
+    // Increment applicants counter
+    job.performance.applicants = (job.performance.applicants || 0) + 1;
+    await job.save();
+
+    res.status(201).json({ success: true, message: 'Application submitted successfully', data: application });
+  } catch (error) { next(error); }
+};
+
+exports.getMyApplications = async (req, res, next) => {
+  try {
+    const { JobApplication } = require('../alumni/alumni.model');
+    const applications = await JobApplication.find({ studentId: req.user._id })
+      .populate('jobId', 'title location salaryRange status')
+      .populate('alumniId', 'name')
+      .sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: applications });
+  } catch (error) { next(error); }
+};
+
+exports.getApplicationChat = async (req, res, next) => {
+  try {
+    const { AlumniChatMessage, JobApplication } = require('../alumni/model');
+    const applicationId = req.params.id;
+    const userId = req.user._id || req.user.id;
+
+    const application = await JobApplication.findById(applicationId);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+
+    // Verify ownership
+    if (application.studentId.toString() !== userId.toString() && application.alumniId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const messages = await AlumniChatMessage.find({ applicationId })
+      .populate('sender', 'name')
+      .populate('receiver', 'name')
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({ success: true, data: messages });
+  } catch (error) { next(error); }
+};
+
+exports.sendApplicationChatMessage = async (req, res, next) => {
+  try {
+    const { AlumniChatMessage, JobApplication } = require('../alumni/model');
+    const applicationId = req.params.id;
+    const userId = req.user._id || req.user.id;
+    const { message } = req.body;
+
+    const application = await JobApplication.findById(applicationId);
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+
+    // Verify ownership
+    if (application.studentId.toString() !== userId.toString() && application.alumniId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const receiverId = application.studentId.toString() === userId.toString() ? application.alumniId : application.studentId;
+
+    const chatMsg = await AlumniChatMessage.create({
+      sender: userId,
+      receiver: receiverId,
+      applicationId,
+      message
+    });
+
+    res.status(201).json({ success: true, data: chatMsg });
+  } catch (error) { next(error); }
+};
