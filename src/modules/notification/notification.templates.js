@@ -207,7 +207,27 @@ const templates = {
     email: (data) => `<h1>New Message</h1><p>You have a new message from ${data.senderName}.</p><a href="${data.link}">View Message</a>`,
   },
 
-  // --- Admin / Manager Events ---
+
+  // --- Webinar Invitations ---
+  WEBINAR_INVITE: {
+    title: 'Webinar Invitation: {{title}}',
+    email: ({ topic, date, link }) => `
+      <html>
+        <body style="font-family:Arial,Helvetica,sans-serif; margin:0; padding:20px; background:#f9fafb;">
+          <div style="max-width:600px; margin:auto; background:#ffffff; padding:30px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <h2 style="color:#4F46E5;">You're Invited: ${topic}</h2>
+            <p>Hi there,</p>
+            <p>We are excited to invite you to our upcoming webinar scheduled for <strong>${date}</strong>.</p>
+            <p>Click the button below to join the session:</p>
+            <p style="text-align:center; margin:20px 0;">
+              <a href="${link}" style="background:#4F46E5;color:#ffffff;padding:12px 24px;border-radius:4px;text-decoration:none;font-weight:bold;">Join Webinar</a>
+            </p>
+            <p>If you have any questions, feel free to reply to this email.</p>
+            <p>Best regards,<br/>The GlobXplore Team</p>
+          </div>
+        </body>
+      </html>`
+  },
   NEW_REGISTRATION_PENDING: {
     title: 'New Registration Approval',
     message: 'New registration from {{name}} ({{role}}) pending approval',

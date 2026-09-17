@@ -6,6 +6,7 @@ const { protect } = require('../../middleware/auth');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/logout', protect, authController.logout);
+router.post('/force-logout', authController.forceLogout); // No token required — called from login page
 router.put('/change-password', protect, authController.changePassword);
 
 router.post('/forgot-password', authController.forgotPassword);

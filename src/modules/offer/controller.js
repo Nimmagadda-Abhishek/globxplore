@@ -1,17 +1,11 @@
 const Offer = require('./model');
 
 /**
- * Get all active offers. (For Agents or ANY authenticated user)
+ * Get all offers (both active and inactive).
  */
 exports.getActiveOffers = async (req, res, next) => {
   try {
-    const offers = await Offer.find({ 
-      isActive: true,
-      $or: [
-        { expiresAt: { $gte: new Date() } },
-        { expiresAt: { $exists: false } }
-      ]
-    }).sort({ createdAt: -1 });
+    const offers = await Offer.find({}).sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, data: offers });
   } catch (error) {
@@ -69,4 +63,30 @@ exports.setOfferActive = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Delete an offer (Admin only).
+ * DELETE /api/offer/:id
+ */
+exports.deleteOffer = async (req, res, next) => {
+  try {
+    const offer = await Offer.findByIdAndDelete(req.params.id);
+
+    if (!offer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Offer not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Offer deleted successfully',
+      data: offer
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

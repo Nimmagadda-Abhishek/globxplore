@@ -11,6 +11,7 @@ router.post('/', authorize('ADMIN'), offerController.createOffer);
 // Admin toggle endpoint used by UI
 // UI calls: PATCH /api/offer/:id/activate
 router.patch('/:id/activate', authorize('ADMIN'), offerController.setOfferActive);
+router.delete('/:id', authorize('ADMIN'), offerController.deleteOffer);
 
 module.exports = router;
 

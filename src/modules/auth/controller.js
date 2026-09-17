@@ -79,6 +79,31 @@ exports.logout = async (req, res, next) => {
 };
 
 /**
+ * Force logout from ALL devices using identifier + password (no token required).
+ * Called from the login page when the user sees the "already logged in" message.
+ */
+exports.forceLogout = async (req, res, next) => {
+  try {
+    const { gxId, email, id, userId, identifier, username, password } = req.body;
+    const loginIdentifier = gxId || email || id || userId || identifier || username;
+
+    if (!loginIdentifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Login ID/email and password are required',
+      });
+    }
+
+    const data = await authService.forceLogoutAllDevices(loginIdentifier, password);
+    res.status(200).json({ success: true, ...data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+/**
  * Change the authenticated user's password.
  */
 exports.changePassword = async (req, res, next) => {

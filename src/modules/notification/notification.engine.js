@@ -3,6 +3,7 @@ const NotificationPreferences = require('./preferences.model');
 const User = require('../user/model');
 const EmailProvider = require('./email.provider');
 const WhatsAppProvider = require('./whatsapp.provider');
+const WebPushProvider = require('./webpush.provider');
 const { sendRealTimeNotification, updateUnreadCount } = require('./notification.socket');
 const { templates, interpolate } = require('./notification.templates');
 
@@ -51,9 +52,10 @@ class NotificationEngine {
 
   isChannelAllowed(channel, preferences) {
     switch (channel) {
-      case 'app': return preferences.allowApp;
+      case 'app':      return preferences.allowApp;
       case 'whatsapp': return preferences.allowWhatsApp;
-      case 'email': return preferences.allowEmail;
+      case 'email':    return preferences.allowEmail;
+      case 'webpush':  return preferences.allowWebPush !== false; // default true
       default: return false;
     }
   }
@@ -92,6 +94,17 @@ class NotificationEngine {
         } else {
           return await WhatsAppProvider.sendMessage(user.phone, notification.message);
         }
+
+      case 'webpush': {
+        const result = await WebPushProvider.send(user._id, {
+          title: notification.title,
+          body: notification.message,
+          icon: '/logo192.png',
+          url: notification.actionUrl || '/',
+          tag: notification._id.toString(),
+        });
+        return result;
+      }
 
       default:
         return { success: false, reason: 'Unsupported channel' };

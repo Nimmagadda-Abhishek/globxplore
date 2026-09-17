@@ -109,6 +109,15 @@ exports.loginUser = async (identifier, password) => {
     throw error;
   }
 
+  // Check for existing active session
+  const existingActive = await Session.findOne({ userId: user._id, logoutTime: { $exists: false } });
+  if (existingActive) {
+    const error = new Error('You are already logged in on another device. Please logout first.');
+    error.status = 403;
+    error.code = 'ALREADY_LOGGED_IN';
+    throw error;
+  }
+
   const accessToken = this.generateToken(user._id, 'access');
   const refreshToken = this.generateToken(user._id, 'refresh');
 
@@ -195,6 +204,50 @@ exports.logoutUser = async (userId) => {
     );
   }
   return true;
+};
+
+/**
+ * Force logout a user from ALL devices using only their identifier (no token needed).
+ * Used from the login page when the user is already logged in on another device.
+ * @param {string} identifier - GX ID or email.
+ * @param {string} password - Must be supplied to prevent abuse.
+ */
+exports.forceLogoutAllDevices = async (identifier, password) => {
+  const normalized = String(identifier).trim();
+  const normalizedEmail = normalized.toLowerCase();
+  const normalizedGxId = normalized.toUpperCase();
+
+  const user = await User.findOne({
+    $or: [
+      { gxId: normalized },
+      { gxId: normalizedGxId },
+      { email: normalized },
+      { email: normalizedEmail },
+    ],
+  }).select('+password');
+
+  if (!user || !(await user.comparePassword(password))) {
+    const error = new Error('Invalid login ID/email or password');
+    error.status = 401;
+    throw error;
+  }
+
+  if (!user.isActive) {
+    const error = new Error('Your account has been deactivated. Please contact support.');
+    error.status = 403;
+    throw error;
+  }
+
+  // Close all open sessions for this user
+  const result = await Session.updateMany(
+    { userId: user._id, logoutTime: { $exists: false } },
+    { $set: { logoutTime: new Date(), status: 'logged_out' } }
+  );
+
+  return {
+    message: 'Successfully logged out from all devices. You can now login.',
+    sessionsTerminated: result.modifiedCount,
+  };
 };
 
 /**

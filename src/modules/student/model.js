@@ -101,6 +101,14 @@ const studentSchema = new mongoose.Schema({
   educationBackground: String,
   percentage: String,
   passingYear: String,
+  
+  tenthPercentage: String,
+  tenthPassingYear: String,
+  tenthBoard: String,
+  
+  twelfthPercentage: String,
+  twelfthPassingYear: String,
+  twelfthBoard: String,
   ieltsStatus: String,
   budgetRange: String,
   passportStatus: String,

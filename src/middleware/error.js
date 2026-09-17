@@ -51,6 +51,7 @@ exports.errorHandler = (err, req, res, next) => {
 
   res.status(error.status || 500).json({
     success: false,
+    ...(err.code && typeof err.code === 'string' && { code: err.code }),
     error: error.message || 'Server Error',
   });
 };

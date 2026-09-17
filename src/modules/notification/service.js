@@ -6,7 +6,7 @@ const User = require('../user/model');
 /**
  * Trigger a notification based on a business event
  */
-exports.triggerNotification = async ({ userId, eventKey, data, channels = ['app', 'email'] }) => {
+exports.triggerNotification = async ({ userId, eventKey, data, channels = ['app', 'email', 'webpush'] }) => {
   try {
     const user = await User.findById(userId);
     if (!user) throw new Error('User not found');

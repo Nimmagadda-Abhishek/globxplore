@@ -274,7 +274,7 @@ exports.updateLeadStatus = async (req, res, next) => {
           gxId: studentGxId,
           password: temporaryPassword
         },
-        channels: ['app', 'email', 'whatsapp']
+        channels: ['app', 'email', 'whatsapp', 'webpush']
       }).catch(console.error);
 
       // Also send explicit welcome credentials email

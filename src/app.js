@@ -2,14 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
+const { roleRateLimiter } = require('./middleware/rateLimiter');
 const { errorHandler } = require('./middleware/error');
 
 const app = express();
 
+// Trust the first proxy (ngrok) so that HTTPS is correctly recognized
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
@@ -20,12 +26,10 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-});
-app.use('/api', limiter);
+// Role-Based Rate Limiting (100 requests per 10 minutes per role per IP)
+// Each role (ADMIN, AGENT, COUNSELLOR, etc.) has its own independent bucket.
+// Unauthenticated requests fall into the GUEST bucket.
+app.use('/api', roleRateLimiter);
 
 // API Routes
 app.use('/api/auth', require('./modules/auth/routes'));

@@ -158,7 +158,7 @@ exports.createClient = async (req, res, next) => {
         gxId: user.gxId,
         password: user._autoPassword
       },
-      channels: ['app', 'email', 'whatsapp']
+      channels: ['app', 'email', 'whatsapp', 'webpush']
     }).catch(console.error);
 
     res.status(201).json({
@@ -278,7 +278,7 @@ exports.updateDS160Status = async (req, res, next) => {
           country: client.country,
           stage: ds160Status === 'Submitted' ? 'DS-160 Submitted' : 'DS-160 Pending'
         },
-        channels: ['app', 'whatsapp']
+        channels: ['app', 'whatsapp', 'webpush']
       }).catch(console.error);
     }
 
@@ -551,7 +551,7 @@ exports.bookAppointment = async (req, res, next) => {
         interviewDate,
         location
       },
-      channels: ['app', 'email', 'whatsapp']
+      channels: ['app', 'email', 'whatsapp', 'webpush']
     }).catch(console.error);
 
     res.status(200).json({ success: true, data: client });
@@ -715,7 +715,7 @@ exports.markAsDone = async (req, res, next) => {
           country: client.country,
           stage: 'Approved/Completed'
         },
-        channels: ['app', 'whatsapp']
+        channels: ['app', 'whatsapp', 'webpush']
       }).catch(console.error);
     }
 

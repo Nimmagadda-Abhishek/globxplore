@@ -20,6 +20,10 @@ const notificationPreferencesSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  allowWebPush: {
+    type: Boolean,
+    default: true,
+  },
   allowMarketing: {
     type: Boolean,
     default: false,

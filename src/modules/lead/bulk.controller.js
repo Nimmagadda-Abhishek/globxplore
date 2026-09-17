@@ -1,4 +1,5 @@
 const XLSX = require('xlsx');
+const mongoose = require('mongoose');
 const Lead = require('./model');
 const User = require('../user/model');
 const { generateGxId } = require('../../utils/gxIdGenerator');
@@ -33,12 +34,47 @@ exports.bulkUpload = async (req, res, next) => {
     const telecallerId = req.body.telecallerId;
 
     // Optional: Validate telecaller if provided
-    if (telecallerId) {
-      const telecaller = await User.findOne({ _id: telecallerId, role: 'TELECALLER' });
+    if (telecallerId && telecallerId !== 'undefined' && telecallerId !== 'null' && telecallerId !== '') {
+      const rawStr = String(telecallerId).trim();
+      let extractedEmail = null;
+      const emailMatch = rawStr.match(/\(([^)]+)\)/) || rawStr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      if (emailMatch) {
+        extractedEmail = emailMatch[1].trim().toLowerCase();
+      }
+
+      const isObjectId = mongoose.Types.ObjectId.isValid(rawStr);
+      const orConditions = [];
+
+      if (isObjectId) {
+        orConditions.push({ _id: rawStr });
+      }
+      orConditions.push({ gxId: rawStr.toUpperCase() });
+      orConditions.push({ email: rawStr.toLowerCase() });
+      orConditions.push({ name: new RegExp(`^${rawStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+
+      if (extractedEmail) {
+        orConditions.push({ email: extractedEmail });
+      }
+
+      // First attempt: search specifically for TELECALLER role
+      let telecaller = await User.findOne({
+        role: 'TELECALLER',
+        $or: orConditions
+      });
+
+      // Second attempt: search across any user if role filter was too strict
+      if (!telecaller) {
+        telecaller = await User.findOne({ $or: orConditions });
+      }
+
       if (!telecaller) {
         return res.status(404).json({ success: false, message: 'Assigned Telecaller not found' });
       }
+      // Store the real ObjectId for lead assignment below
+      req.validatedTelecallerId = telecaller._id;
     }
+
+    const assignedTelecallerId = req.validatedTelecallerId || undefined;
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -72,8 +108,8 @@ exports.bulkUpload = async (req, res, next) => {
           phone: phoneStr,
           email: email ? email.toString().toLowerCase().trim() : undefined,
           source: source,
-          assignedTo: telecallerId || undefined,
-          handledByTelecaller: telecallerId || undefined,
+          assignedTo: assignedTelecallerId,
+          handledByTelecaller: assignedTelecallerId,
           status: 'Lead received'
         });
         results.success++;
@@ -108,14 +144,43 @@ exports.bulkAssign = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide a telecallerId' });
     }
 
-    const telecaller = await User.findOne({ _id: telecallerId, role: 'TELECALLER' });
+    const rawStr = String(telecallerId).trim();
+    let extractedEmail = null;
+    const emailMatch = rawStr.match(/\(([^)]+)\)/) || rawStr.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if (emailMatch) {
+      extractedEmail = emailMatch[1].trim().toLowerCase();
+    }
+
+    const isObjectId = mongoose.Types.ObjectId.isValid(rawStr);
+    const orConditions = [];
+
+    if (isObjectId) {
+      orConditions.push({ _id: rawStr });
+    }
+    orConditions.push({ gxId: rawStr.toUpperCase() });
+    orConditions.push({ email: rawStr.toLowerCase() });
+    orConditions.push({ name: new RegExp(`^${rawStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+
+    if (extractedEmail) {
+      orConditions.push({ email: extractedEmail });
+    }
+
+    let telecaller = await User.findOne({
+      role: 'TELECALLER',
+      $or: orConditions
+    });
+
+    if (!telecaller) {
+      telecaller = await User.findOne({ $or: orConditions });
+    }
+
     if (!telecaller) {
       return res.status(404).json({ success: false, message: 'Telecaller not found' });
     }
 
     const result = await Lead.updateMany(
       { _id: { $in: leadIds } },
-      { $set: { assignedTo: telecallerId, handledByTelecaller: telecallerId } }
+      { $set: { assignedTo: telecaller._id, handledByTelecaller: telecaller._id } }
     );
 
     res.status(200).json({ 
