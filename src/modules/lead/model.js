@@ -61,6 +61,14 @@ const leadSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  percentage: {
+    type: String,
+    trim: true,
+  },
+  budgetRange: {
+    type: String,
+    trim: true,
+  },
 
   // Backward-compatible aliases for any older frontend misspellings.
   // These should be treated as aliases; mapping happens in controller.

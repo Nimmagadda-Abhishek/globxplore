@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('./admin.controller');
+const authController = require('../auth/controller');
 const usersController = require('./admin.users.controller');
 const leadsController = require('./admin.leads.controller');
 const studentsController = require('./admin.students.controller');
@@ -19,6 +20,10 @@ const upload = require('../../middleware/upload');
 const { authorize } = require('../../middleware/role');
 
 // Public routes
+// Kept for backwards compatibility with the admin portal.  This must be
+// registered before `router.use(protect)`, otherwise valid credentials are
+// rejected because the request has no bearer token yet.
+router.post('/login', authController.login);
 
 
 // Protected routes

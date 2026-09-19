@@ -100,18 +100,9 @@ exports.updateLeadStatus = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Lead not found' });
     }
 
-    // Secure lead editing:
-    // - Telecaller can only edit leads assigned to them.
-    // - Telecaller can only update call-related fields (status/notes/followUpDate).
+    // Telecallers may update every lead, regardless of assignment. Their
+    // updates remain limited to the call and qualification fields below.
     if (req.user.role === 'TELECALLER') {
-      // Ownership check
-      if (!lead.assignedTo || lead.assignedTo.toString() !== req.user._id.toString()) {
-        return res.status(403).json({
-          success: false,
-          message: 'You can only edit leads assigned to you',
-        });
-      }
-
       // Field scope check (prevents updating other arbitrary lead data)
       // TELECALLER is allowed to update:
       // - identity/contact: name, email, phone
@@ -136,6 +127,8 @@ exports.updateLeadStatus = async (req, res, next) => {
         'intrestedLevel',
         'intrestCourse',
         'intake',
+        'budgetRange',
+        'percentage',
 
       ]);
 
@@ -157,6 +150,8 @@ exports.updateLeadStatus = async (req, res, next) => {
       if (req.body.name) lead.name = req.body.name;
       if (req.body.email) lead.email = req.body.email;
       if (req.body.phone) lead.phone = req.body.phone;
+      if (req.body.budgetRange !== undefined) lead.budgetRange = req.body.budgetRange;
+      if (req.body.percentage !== undefined) lead.percentage = req.body.percentage;
     }
 
     lead.status = status;

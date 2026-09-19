@@ -4,6 +4,7 @@ const { generateGxId } = require('../../utils/gxIdGenerator');
 const { Session } = require('../activity/model');
 
 const crypto = require('crypto');
+const STAFF_SESSION_ROLES = ['ADMIN', 'AGENT_MANAGER', 'AGENT', 'TELECALLER', 'COUNSELLOR', 'VISA_AGENT', 'ALUMNI_MANAGER'];
 
 /**
  * Register a new user and generate a GX ID.
@@ -145,8 +146,7 @@ exports.loginUser = async (identifier, password) => {
   }
 
   // Create attendance session for staff roles
-  const staffRoles = ['ADMIN', 'AGENT_MANAGER', 'AGENT', 'TELECALLER', 'COUNSELLOR', 'VISA_AGENT', 'ALUMNI_MANAGER'];
-  if (staffRoles.includes(user.role.toUpperCase())) {
+  if (STAFF_SESSION_ROLES.includes(user.role.toUpperCase())) {
     try {
       // Close any existing open sessions first (safety check)
       await Session.updateMany(
@@ -188,11 +188,9 @@ exports.loginUser = async (identifier, password) => {
  * @param {string} userId - User ID to logout.
  */
 exports.logoutUser = async (userId) => {
-  const staffRoles = ['ADMIN', 'AGENT_MANAGER', 'AGENT', 'TELECALLER', 'COUNSELLOR', 'VISA_AGENT', 'ALUMNI_MANAGER'];
-  
   // Find the user to check their role
   const user = await User.findById(userId);
-  if (user && staffRoles.includes(user.role.toUpperCase())) {
+  if (user && STAFF_SESSION_ROLES.includes(user.role.toUpperCase())) {
     await Session.updateMany(
       { userId, logoutTime: { $exists: false } },
       { 

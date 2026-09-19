@@ -46,11 +46,17 @@ exports.login = async (req, res, next) => {
     } = req.body;
 
     const loginIdentifier = gxId || email || id || userId || identifier || username;
-    if (!loginIdentifier || !password) {
+    // Form values can contain an accidental leading or trailing space (for
+    // example, after pasting a generated password).  Identifiers are already
+    // normalized by the service; normalize the password at the HTTP boundary
+    // too so the browser and API behave consistently.
+    const normalizedPassword = typeof password === 'string' ? password.trim() : password;
+
+    if (!loginIdentifier || !normalizedPassword) {
       return res.status(400).json({ success: false, message: 'Login ID/email and password are required' });
     }
 
-    const data = await authService.loginUser(loginIdentifier, password);
+    const data = await authService.loginUser(loginIdentifier, normalizedPassword);
     res.status(200).json({
       success: true,
       message: 'Login successful',
@@ -86,15 +92,16 @@ exports.forceLogout = async (req, res, next) => {
   try {
     const { gxId, email, id, userId, identifier, username, password } = req.body;
     const loginIdentifier = gxId || email || id || userId || identifier || username;
+    const normalizedPassword = typeof password === 'string' ? password.trim() : password;
 
-    if (!loginIdentifier || !password) {
+    if (!loginIdentifier || !normalizedPassword) {
       return res.status(400).json({
         success: false,
         message: 'Login ID/email and password are required',
       });
     }
 
-    const data = await authService.forceLogoutAllDevices(loginIdentifier, password);
+    const data = await authService.forceLogoutAllDevices(loginIdentifier, normalizedPassword);
     res.status(200).json({ success: true, ...data });
   } catch (error) {
     next(error);

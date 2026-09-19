@@ -15,6 +15,11 @@ const VisaProcess = require('../visa/model');
  */
 exports.logout = async (req, res, next) => {
   try {
+    // Admin login creates the same attendance session as the main auth
+    // endpoint. Close it here so the next login is not treated as a login
+    // from another device.
+    await authService.logoutUser(req.user._id || req.user.id);
+
     res.status(200).json({
       success: true,
       message: 'Logout successful'
