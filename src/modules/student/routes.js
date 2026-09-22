@@ -15,6 +15,7 @@ router.post('/register', studentPortalController.register);
 // Protected Student Routes
 router.get('/me', protect, authorize('STUDENT'), studentPortalController.getMe);
 router.get('/dashboard', protect, authorize('STUDENT'), studentPortalController.getDashboard);
+router.get('/announcements', protect, authorize('STUDENT'), studentPortalController.getAnnouncements);
 router.get('/pipeline', protect, authorize('STUDENT'), studentPortalController.getPipeline);
 router.get('/alerts', protect, authorize('STUDENT'), studentPortalController.getAlerts);
 router.put('/profile', protect, authorize('STUDENT'), studentPortalController.updateProfile);

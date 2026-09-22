@@ -1,5 +1,6 @@
 const studentService = require('./student.service');
 const authService = require('../auth/service');
+const { CommunityPost } = require('../alumni/model');
 
 /**
  * Public: Student self-registration
@@ -36,6 +37,19 @@ exports.getDashboard = async (req, res, next) => {
   try {
     const dashboard = await studentService.getStudentDashboard(req.user._id);
     res.status(200).json({ success: true, data: dashboard });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getAnnouncements = async (req, res, next) => {
+  try {
+    const announcements = await CommunityPost.find({ type: 'Announcement' })
+      .select('author banner title description place date content type createdAt')
+      .populate('author', 'name gxId')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, data: announcements });
   } catch (error) {
     next(error);
   }

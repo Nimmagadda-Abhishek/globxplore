@@ -14,6 +14,8 @@ const alumniRegistrationSchema = new mongoose.Schema({
   documents: [{ name: String, url: String, uploadedAt: { type: Date, default: Date.now } }],
   status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
   rejectionReason: String,
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedAt: Date,
 }, { timestamps: true });
 
 const studentRequestSchema = new mongoose.Schema({
@@ -21,6 +23,8 @@ const studentRequestSchema = new mongoose.Schema({
   alumni: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // The assigned mentor
   query: { type: String, required: true },
   status: { type: String, enum: ['Pending', 'Assigned', 'Resolved'], default: 'Pending' },
+  handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  handledAt: Date,
 }, { timestamps: true });
 
 const serviceRequestSchema = new mongoose.Schema({
@@ -37,6 +41,8 @@ const serviceRequestSchema = new mongoose.Schema({
   isFundTransferred: { type: Boolean, default: false },
   payoutId: String,
   payoutResponse: Object,
+  handledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  handledAt: Date,
 }, { timestamps: true });
 
 const pricingCatalogSchema = new mongoose.Schema({
@@ -47,7 +53,12 @@ const pricingCatalogSchema = new mongoose.Schema({
 
 const communityPostSchema = new mongoose.Schema({
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: true },
+  content: { type: String },
+  banner: { type: String },
+  title: { type: String },
+  description: { type: String },
+  place: { type: String },
+  date: { type: Date },
   type: { type: String, enum: ['Announcement', 'General'], default: 'General' },
 }, { timestamps: true });
 

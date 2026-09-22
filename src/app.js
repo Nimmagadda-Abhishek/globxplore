@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const { roleRateLimiter } = require('./middleware/rateLimiter');
 const { errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -13,7 +12,7 @@ app.set('trust proxy', 1);
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: 'https://globxplorer-design.vercel.app',
+  origin: 'http://localhost:5173',
   credentials: true,
 }));
 
@@ -25,11 +24,6 @@ if (process.env.NODE_ENV === 'development') {
 // Body Parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Role-Based Rate Limiting (100 requests per 10 minutes per role per IP)
-// Each role (ADMIN, AGENT, COUNSELLOR, etc.) has its own independent bucket.
-// Unauthenticated requests fall into the GUEST bucket.
-app.use('/api', roleRateLimiter);
 
 // API Routes
 app.use('/api/auth', require('./modules/auth/routes'));

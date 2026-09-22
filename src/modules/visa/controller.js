@@ -77,7 +77,17 @@ exports.getVisaDetails = async (req, res, next) => {
   try {
     // Determine target based on param or auth
     const targetId = req.params.userId || req.user._id;
-    const visas = await VisaProcess.find({ linkedUser: targetId });
+    const query = { linkedUser: targetId };
+    if (req.user.role === 'VISA_AGENT') query.assignedAgent = req.user._id;
+    const visas = await VisaProcess.find(query);
+
+    if (req.user.role === 'VISA_AGENT') {
+      const agentId = req.user._id.toString();
+      visas.forEach(visa => {
+        visa.mandatoryDocs = visa.mandatoryDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+        visa.slotConfirmationDocs = visa.slotConfirmationDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+      });
+    }
     
     res.status(200).json({ success: true, data: visas });
   } catch (error) {
@@ -95,13 +105,16 @@ exports.uploadDocument = async (req, res, next) => {
     const visa = await VisaProcess.findById(req.params.id);
 
     if (!visa) return res.status(404).json({ success: false, message: 'Visa not found' });
+    if (req.user.role === 'VISA_AGENT' && visa.assignedAgent?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'You are not authorized for this visa process' });
+    }
 
     // Client restriction enforcement to exact list limits
     if (visa.mandatoryDocs.length >= 10) {
        return res.status(400).json({ success: false, message: 'Maximum 10 mandatory documents uploaded' });
     }
 
-    visa.mandatoryDocs.push({ name, url, uploadedAt: new Date() });
+    visa.mandatoryDocs.push({ name, url, uploadedBy: req.user._id, uploadedAt: new Date() });
     await visa.save();
 
     res.status(200).json({ success: true, data: visa });

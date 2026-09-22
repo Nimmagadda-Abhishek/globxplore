@@ -1,6 +1,7 @@
 const User = require('../user/model');
 const authService = require('../auth/service');
 const { sendWelcomeEmail } = require('../notification/service');
+const { AlumniRegistration, StudentRequest, ServiceRequest } = require('../alumni/model');
 
 /**
  * Create a new Alumni Manager.
@@ -124,13 +125,43 @@ exports.updateAlumniManagerStatus = async (req, res, next) => {
  */
 exports.getAlumniManagerAnalytics = async (req, res, next) => {
   try {
-    // Basic analytics placeholder
+    const manager = await User.findOne({ _id: req.params.id, role: 'ALUMNI_MANAGER' }).select('_id createdAt');
+    if (!manager) return res.status(404).json({ success: false, message: 'Alumni Manager not found' });
+
+    const weeklyTarget = Math.max(Number(req.query.weeklyTarget) || 20, 1);
+    const weekStart = new Date();
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
+    const managerId = manager._id;
+
+    const [approvedAlumni, approvedRegistrations, resolvedRequests, handledServiceRequests, weeklyApproved, weeklyHandled] = await Promise.all([
+      User.countDocuments({ role: 'ALUMNI', approvedBy: managerId }),
+      AlumniRegistration.countDocuments({ approvedBy: managerId }),
+      StudentRequest.countDocuments({ handledBy: managerId, status: 'Resolved' }),
+      ServiceRequest.countDocuments({ handledBy: managerId, status: { $in: ['Approved', 'Rejected', 'Completed'] } }),
+      User.countDocuments({ role: 'ALUMNI', approvedBy: managerId, approvedAt: { $gte: weekStart } }),
+      Promise.all([
+        StudentRequest.countDocuments({ handledBy: managerId, handledAt: { $gte: weekStart } }),
+        ServiceRequest.countDocuments({ handledBy: managerId, handledAt: { $gte: weekStart } })
+      ]).then(([student, service]) => student + service)
+    ]);
+
+    const alumniApproved = approvedAlumni + approvedRegistrations;
+    const requestsHandled = resolvedRequests + handledServiceRequests;
+    const totalReviewed = alumniApproved + requestsHandled;
+    const approvalEfficiency = totalReviewed ? Math.round((alumniApproved / totalReviewed) * 100) : 0;
+    const weeklyCompleted = weeklyApproved + weeklyHandled;
+
     res.status(200).json({
       success: true,
       data: {
-        alumniApproved: 0,
-        requestsHandled: 0,
-        activeSince: new Date()
+        alumniApproved,
+        requestsHandled,
+        approvalEfficiency,
+        weeklyTarget,
+        weeklyCompleted,
+        weeklyProgress: Math.min(Math.round((weeklyCompleted / weeklyTarget) * 100), 100),
+        activeSince: manager.createdAt
       }
     });
   } catch (error) {

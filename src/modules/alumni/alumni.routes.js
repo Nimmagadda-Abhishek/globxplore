@@ -21,6 +21,7 @@ router.use(protect);
 router.get('/chat/:id', alumniController.getChat);
 router.post('/chat/:id', alumniController.sendChatMessage);
 router.get('/chats', alumniController.getChatThreads);
+router.get('/announcements', authorize('ALUMNI', 'ADMIN'), alumniController.getAnnouncements);
 
 // Protected routes (Alumni Only)
 router.use(authorize('ALUMNI', 'ADMIN'));

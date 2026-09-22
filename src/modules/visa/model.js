@@ -88,6 +88,7 @@ const visaProcessSchema = new mongoose.Schema({
       name: { type: String }, 
       url: { type: String },
       category: { type: String },
+      uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       uploadedAt: { type: Date, default: Date.now },
     }
   ],
@@ -95,6 +96,7 @@ const visaProcessSchema = new mongoose.Schema({
     {
       name: { type: String },
       url: { type: String },
+      uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       uploadedAt: { type: Date, default: Date.now }
     }
   ],

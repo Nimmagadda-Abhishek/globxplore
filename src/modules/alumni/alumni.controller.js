@@ -113,6 +113,17 @@ exports.getDashboardActivity = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+exports.getAnnouncements = async (req, res, next) => {
+  try {
+    const announcements = await CommunityPost.find({ type: 'Announcement' })
+      .select('author banner title description place date content type createdAt')
+      .populate('author', 'name gxId')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ success: true, data: announcements });
+  } catch (error) { next(error); }
+};
+
 // 3. Profile APIs
 exports.getProfile = async (req, res, next) => {
   try {

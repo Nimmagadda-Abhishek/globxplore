@@ -59,7 +59,7 @@ exports.uploadDocuments = async (req, res, next) => {
     
     // Can just save general docs or update specific list
     const fileUrl = req.file.path || req.file.location;
-    const doc = { name: req.body.name || 'General Document', url: fileUrl };
+    const doc = { name: req.body.name || 'General Document', url: fileUrl, uploadedBy: req.user._id };
 
     const process = await VisaProcess.findOneAndUpdate(
       { linkedUser: req.user.id }, 

@@ -29,6 +29,7 @@ router.patch('/approve-alumni/:id', alumniController.approveAlumniAccount);
 
 // 4. Users APIs
 router.get('/users', alumniController.getUsers);
+router.get('/users/active-counts', alumniController.getActiveUserCounts);
 router.patch('/users/:id/status', alumniController.updateUserStatus);
 
 // 5. Student Connect APIs
@@ -58,6 +59,7 @@ router.get('/payments/summary', alumniController.getPaymentSummary);
 
 // 10. Community APIs
 router.post('/community/announcement', alumniController.createAnnouncement);
+router.patch('/community/announcement/:id', alumniController.updateAnnouncement);
 router.get('/community/posts', alumniController.getCommunityFeed);
 
 // 11. Reports APIs

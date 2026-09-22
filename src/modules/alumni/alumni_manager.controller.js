@@ -122,6 +122,8 @@ exports.approveRegistration = async (req, res, next) => {
 
     registration.status = 'Approved';
     registration.linkedUser = newAlumniUser._id;
+    registration.approvedBy = req.user._id;
+    registration.approvedAt = new Date();
     await registration.save();
 
     res.status(200).json({
@@ -164,6 +166,26 @@ exports.getUsers = async (req, res, next) => {
   }
 };
 
+exports.getActiveUserCounts = async (req, res, next) => {
+  try {
+    const [activeAlumni, activeStudents] = await Promise.all([
+      User.countDocuments({ role: 'ALUMNI', isActive: true }),
+      User.countDocuments({ role: 'STUDENT', isActive: true })
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        activeAlumni,
+        activeStudents,
+        totalActiveUsers: activeAlumni + activeStudents
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateUserStatus = async (req, res, next) => {
   try {
     const { status, isApproved } = req.body;
@@ -201,7 +223,7 @@ exports.approveAlumniAccount = async (req, res, next) => {
   try {
     const user = await User.findOneAndUpdate(
       { _id: req.params.id, role: 'ALUMNI' },
-      { isApproved: true },
+      { isApproved: true, approvedBy: req.user._id, approvedAt: new Date() },
       { new: true }
     );
     if (!user) return res.status(404).json({ success: false, message: 'Alumni not found' });
@@ -254,7 +276,7 @@ exports.resolveRequest = async (req, res, next) => {
   try {
     const request = await StudentRequest.findByIdAndUpdate(
       req.params.id,
-      { status: 'Resolved' },
+      { status: 'Resolved', handledBy: req.user._id, handledAt: new Date() },
       { new: true }
     );
     res.status(200).json({ success: true, data: request });
@@ -323,7 +345,7 @@ exports.approveService = async (req, res, next) => {
   try {
     const request = await ServiceRequest.findByIdAndUpdate(
       req.params.id,
-      { status: 'Approved' },
+      { status: 'Approved', handledBy: req.user._id, handledAt: new Date() },
       { new: true }
     );
     res.status(200).json({ success: true, data: request });
@@ -336,7 +358,7 @@ exports.rejectService = async (req, res, next) => {
   try {
     const request = await ServiceRequest.findByIdAndUpdate(
       req.params.id,
-      { status: 'Rejected' },
+      { status: 'Rejected', handledBy: req.user._id, handledAt: new Date() },
       { new: true }
     );
     res.status(200).json({ success: true, data: request });
@@ -415,13 +437,71 @@ exports.getPaymentSummary = async (req, res, next) => {
 
 exports.createAnnouncement = async (req, res, next) => {
   try {
-    const { content } = req.body;
+    const { banner, title, description, place, date } = req.body;
+    if (!title || !description) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and description are required'
+      });
+    }
+
     const post = await CommunityPost.create({
       author: req.user.id,
-      content,
+      banner,
+      title,
+      description,
+      content: description,
+      place,
+      date,
       type: 'Announcement'
     });
     res.status(201).json({ success: true, data: post });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateAnnouncement = async (req, res, next) => {
+  try {
+    const announcement = await CommunityPost.findOne({
+      _id: req.params.id,
+      type: 'Announcement'
+    });
+    if (!announcement) {
+      return res.status(404).json({ success: false, message: 'Announcement not found' });
+    }
+
+    const { banner, title, description, place, date } = req.body;
+    const updates = {};
+    if (typeof banner !== 'undefined') updates.banner = banner;
+    if (typeof title !== 'undefined') updates.title = title;
+    if (typeof description !== 'undefined') {
+      updates.description = description;
+      updates.content = description;
+    }
+    if (typeof place !== 'undefined') updates.place = place;
+    if (typeof date !== 'undefined') updates.date = date;
+
+    const nextTitle = updates.title ?? announcement.title;
+    const nextDescription = updates.description ?? announcement.description ?? announcement.content;
+    if (!nextTitle || !nextDescription) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title and description are required'
+      });
+    }
+
+    if (typeof updates.description === 'undefined' && announcement.content !== nextDescription) {
+      updates.content = nextDescription;
+    }
+
+    const updatedAnnouncement = await CommunityPost.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).populate('author', 'name gxId');
+
+    res.status(200).json({ success: true, data: updatedAnnouncement });
   } catch (error) {
     next(error);
   }

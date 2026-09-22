@@ -52,6 +52,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  approvedAt: Date,
   isLocked: {
     type: Boolean,
     default: false,

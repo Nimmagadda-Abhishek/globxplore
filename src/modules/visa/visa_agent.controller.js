@@ -192,12 +192,22 @@ exports.getClients = async (req, res, next) => {
       .skip((page - 1) * limit)
       .limit(limit * 1);
 
+    const visibleClients = clients.map(client => {
+      const data = client.toObject();
+      if (req.user.role === 'VISA_AGENT') {
+        const agentId = req.user._id.toString();
+        data.mandatoryDocs = data.mandatoryDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+        data.slotConfirmationDocs = data.slotConfirmationDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+      }
+      return data;
+    });
+
     const count = await VisaProcess.countDocuments(query);
 
     res.status(200).json({
       success: true,
       data: {
-        clients,
+        clients: visibleClients,
         totalPages: Math.ceil(count / limit),
         currentPage: page,
         totalClients: count
@@ -216,7 +226,15 @@ exports.getClientById = async (req, res, next) => {
   try {
     const client = await VisaProcess.findById(req.params.id).populate('linkedUser');
     if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
-    res.status(200).json({ success: true, data: client });
+
+    const data = client.toObject();
+    if (req.user.role === 'VISA_AGENT') {
+      const agentId = req.user._id.toString();
+      data.mandatoryDocs = data.mandatoryDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+      data.slotConfirmationDocs = data.slotConfirmationDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+    }
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -309,7 +327,16 @@ exports.uploadDS160Pdf = async (req, res, next) => {
 exports.getDS160 = async (req, res, next) => {
   try {
     const client = await VisaProcess.findById(req.params.id).select('+ds160Credentials.password');
-    res.status(200).json({ success: true, data: client });
+    if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+
+    const data = client.toObject();
+    if (req.user.role === 'VISA_AGENT') {
+      const agentId = req.user._id.toString();
+      data.mandatoryDocs = data.mandatoryDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+      data.slotConfirmationDocs = data.slotConfirmationDocs.filter(doc => doc.uploadedBy && doc.uploadedBy.toString() === agentId);
+    }
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -599,7 +626,12 @@ exports.uploadConfirmationPage = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
     const fileUrl = req.file.path || req.file.location;
-    const doc = { name: 'Confirmation Page', url: fileUrl };
+    const visa = await VisaProcess.findById(req.params.id).select('assignedAgent');
+    if (!visa) return res.status(404).json({ success: false, message: 'Client not found' });
+    if (req.user.role === 'VISA_AGENT' && visa.assignedAgent?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'You are not authorized for this client' });
+    }
+    const doc = { name: 'Confirmation Page', url: fileUrl, uploadedBy: req.user._id };
     const client = await VisaProcess.findByIdAndUpdate(req.params.id, { $push: { slotConfirmationDocs: doc } }, { new: true });
     res.status(200).json({ success: true, data: client });
   } catch (error) {

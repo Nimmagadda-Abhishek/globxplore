@@ -40,43 +40,76 @@ exports.getCounsellors = async (req, res, next) => {
       }
     ]);
 
-    // Visa success: we don't have a direct Student->VisaProcess link in schema.
-    // Best-effort mapping:
-    // - if VisaProcess.linkedUser equals Student._id OR Student.userId
-    const visaSuccessAgg = await Promise.all([
-      VisaProcess.aggregate([
-        { $match: { linkedUser: { $in: counsellorIds } } },
-        { $group: { _id: '$linkedUser', visaSuccessCount: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'Approved'] }, 1, 0] } }, visaTotal: { $sum: 1 } } }
-      ]),
-      VisaProcess.aggregate([
-        { $match: { approvalStatus: { $in: ['Approved', 'Not approved'] } } },
-        { $group: { _id: '$linkedUser', visaSuccessCount: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'Approved'] }, 1, 0] } }, visaTotal: { $sum: 1 } } }
-      ])
+    const overallProcessingAgg = await Student.aggregate([
+      { $match: { assignedCounsellor: { $in: counsellorIds } } },
+      { $unwind: '$stageHistory' },
+      {
+        $group: {
+          _id: null,
+          avgProcessingMs: { $avg: { $ifNull: ['$stageHistory.durationMs', 0] } }
+        }
+      }
+    ]);
+
+    // Visa success per counsellor, linked through the counsellor's assigned students.
+    const visaSuccessAgg = await Student.aggregate([
+      { $match: { assignedCounsellor: { $in: counsellorIds } } },
+      {
+        $lookup: {
+          from: 'visaprocesses',
+          let: { studentId: '$_id', userId: '$userId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $eq: ['$linkedUser', '$$studentId'] },
+                    { $eq: ['$linkedUser', '$$userId'] }
+                  ]
+                },
+                approvalStatus: { $in: ['Approved', 'Not approved'] }
+              }
+            }
+          ],
+          as: 'visaProcesses'
+        }
+      },
+      { $unwind: '$visaProcesses' },
+      {
+        $group: {
+          _id: '$assignedCounsellor',
+          visaSuccessCount: { $sum: { $cond: [{ $eq: ['$visaProcesses.approvalStatus', 'Approved'] }, 1, 0] } },
+          visaTotal: { $sum: 1 }
+        }
+      }
     ]);
 
     const studentsHandledMap = Object.fromEntries(studentsHandledAgg.map(r => [String(r._id), r.studentsHandled]));
     const processingMap = Object.fromEntries(processingAgg.map(r => [String(r._id), r.avgProcessingMs]));
 
-    // Build visa maps conservatively (unknown linkage). Use first agg if it matches counsellorIds, else 2nd will still be irrelevant.
-    // We'll compute visaSuccessRate as visaSuccessCount/visaTotal, but if map is empty, default to 0.
     const visaMap = Object.fromEntries(
-      (visaSuccessAgg[0] || []).map(r => [String(r._id), { visaSuccessCount: r.visaSuccessCount, visaTotal: r.visaTotal }])
+      visaSuccessAgg.map(r => [String(r._id), { visaSuccessCount: r.visaSuccessCount, visaTotal: r.visaTotal }])
     );
 
-    const buildScore = (visaSuccessRate, avgProcessingMs, satisfactionScore) => {
-      // Lower processing time => higher score; normalize by a soft cap.
+    const maxStudentsHandled = Math.max(...counsellors.map(c => studentsHandledMap[String(c._id)] || 0), 0);
+
+    const buildScore = (studentsHandled, visaSuccessRate, avgProcessingMs) => {
+      // Lower processing time => higher score; missing processing data scores zero.
       const cappedMs = Math.min(Math.max(avgProcessingMs, 0), 30 * 24 * 60 * 60 * 1000); // 30 days cap
-      const avgProcessingScore = cappedMs === 0 ? 100 : (100 * (1 - cappedMs / (30 * 24 * 60 * 60 * 1000)));
+      const processingScore = avgProcessingMs > 0
+        ? 100 * (1 - cappedMs / (30 * 24 * 60 * 60 * 1000))
+        : 0;
+      const studentsHandledScore = maxStudentsHandled > 0
+        ? (studentsHandled / maxStudentsHandled) * 100
+        : 0;
 
       return (
+        (studentsHandledScore * 0.3) +
         (visaSuccessRate * 0.4) +
-        (avgProcessingScore * 0.4) +
-        ((satisfactionScore ?? 0) * 0.2)
+        (processingScore * 0.3)
       );
     };
 
-    // Satisfaction: no schema-backed field found in the visible models we inspected.
-    // Safe fallback: return null (and score treats it as 0).
     const counsellorRows = counsellors.map(c => {
       const id = String(c._id);
       const studentsHandled = studentsHandledMap[id] || 0;
@@ -86,10 +119,7 @@ exports.getCounsellors = async (req, res, next) => {
       const visaStats = visaMap[id] || { visaSuccessCount: 0, visaTotal: 0 };
       const visaSuccessRate = visaStats.visaTotal > 0 ? (visaStats.visaSuccessCount / visaStats.visaTotal) * 100 : 0;
 
-      const satisfaction = null;
-      const satisfactionScore = 0;
-
-      const performanceScore = buildScore(visaSuccessRate, avgProcessingMs, satisfactionScore);
+      const performanceScore = buildScore(studentsHandled, visaSuccessRate, avgProcessingMs);
 
       return {
         counsellorId: c._id,
@@ -107,20 +137,44 @@ exports.getCounsellors = async (req, res, next) => {
           avgProcessingMs,
           avgProcessingDays: Number((avgProcessingMs / (1000 * 60 * 60 * 24)).toFixed(2))
         },
-        satisfaction,
-        performanceScore
+        performanceScore: Number(performanceScore.toFixed(2))
       };
     });
 
     counsellorRows.sort((a, b) => b.performanceScore - a.performanceScore);
     const topCounsellor = counsellorRows[0] || null;
+    const overallAvgProcessingMs = overallProcessingAgg[0]?.avgProcessingMs || 0;
+    const overallVisaSuccessCount = visaSuccessAgg.reduce((total, item) => total + item.visaSuccessCount, 0);
+    const overallVisaTotal = visaSuccessAgg.reduce((total, item) => total + item.visaTotal, 0);
+    const overallVisaSuccessRate = overallVisaTotal > 0
+      ? (overallVisaSuccessCount / overallVisaTotal) * 100
+      : 0;
+    const overallSatisfaction = counsellorRows.length
+      ? counsellorRows.reduce((total, counsellor) => total + counsellor.performanceScore, 0) / counsellorRows.length
+      : 0;
 
     res.status(200).json({
       success: true,
       count: counsellorRows.length,
       data: {
         counsellors: counsellorRows,
-        topCounsellor
+        topCounsellor,
+        overall: {
+          avgProcessing: {
+            avgProcessingMs: Number(overallAvgProcessingMs.toFixed(2)),
+            avgProcessingDays: Number((overallAvgProcessingMs / (1000 * 60 * 60 * 24)).toFixed(2))
+          },
+          visaSuccess: {
+            visaSuccessCount: overallVisaSuccessCount,
+            visaTotal: overallVisaTotal,
+            ratePercent: Number(overallVisaSuccessRate.toFixed(2))
+          },
+          satisfaction: {
+            value: Number(overallSatisfaction.toFixed(2)),
+            available: true,
+            source: 'Average performance score across all counsellors'
+          }
+        }
       }
     });
   } catch (error) {
