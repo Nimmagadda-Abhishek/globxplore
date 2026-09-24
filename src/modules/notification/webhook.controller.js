@@ -3,7 +3,7 @@ const Lead = require('../lead/model');
 const User = require('../user/model');
 const Notification = require('./model');
 const WhatsAppProvider = require('./whatsapp.provider');
-const { sendRealTimeNotification } = require('./notification.socket');
+const { sendRealTimeNotification, sendRealTimeChatMessage } = require('./notification.socket');
 
 // Verify the webhook from Meta
 exports.verifyWebhook = (req, res) => {
@@ -59,16 +59,27 @@ exports.handleWebhook = async (req, res) => {
         
         if (student) {
           console.log(`[Webhook] Match Found! Student: ${student.name} (${student._id})`);
-          student.messages.push({
-            senderName: student.name,
-            senderRole: 'STUDENT',
-            content: msg_body,
-            timestamp: new Date()
-          });
+          const incomingMessage = {
+            sender: 'student',
+            text: msg_body,
+            timestamp: new Date(),
+            status: 'received'
+          };
+          student.messages.push(incomingMessage);
+          student.lastMessageAt = incomingMessage.timestamp;
           await student.save();
           console.log(`[Webhook] Message saved to student history.`);
 
           if (student.assignedCounsellor) {
+            const messageEvent = {
+              studentId: student._id,
+              sender: incomingMessage.sender,
+              text: incomingMessage.text,
+              timestamp: incomingMessage.timestamp,
+              status: incomingMessage.status
+            };
+
+            sendRealTimeChatMessage(student.assignedCounsellor, messageEvent);
             sendRealTimeNotification(student.assignedCounsellor, {
               title: `WhatsApp from ${student.name}`,
               message: msg_body,

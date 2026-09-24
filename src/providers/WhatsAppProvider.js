@@ -6,7 +6,9 @@ class WhatsAppProvider {
    */
   static async sendRawNotification(to, text) {
     try {
-      const url = `https://graph.facebook.com/v18.0/${process.env.WA_PHONE_ID}/messages`;
+      const phoneId = process.env.WA_PHONE_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.WA_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN;
+      const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
       
       const response = await axios.post(url, {
         messaging_product: 'whatsapp',
@@ -15,7 +17,7 @@ class WhatsAppProvider {
         text: { body: text }
       }, {
         headers: {
-          'Authorization': `Bearer ${process.env.WA_TOKEN}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -33,7 +35,9 @@ class WhatsAppProvider {
    */
   static async sendChatAlertTemplate(to, studentName, portalUrl) {
     try {
-      const url = `https://graph.facebook.com/v18.0/${process.env.WA_PHONE_ID}/messages`;
+      const phoneId = process.env.WA_PHONE_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+      const accessToken = process.env.WA_TOKEN || process.env.WHATSAPP_ACCESS_TOKEN;
+      const url = `https://graph.facebook.com/v18.0/${phoneId}/messages`;
 
       const response = await axios.post(url, {
         messaging_product: 'whatsapp',
@@ -55,7 +59,7 @@ class WhatsAppProvider {
         }
       }, {
         headers: {
-          'Authorization': `Bearer ${process.env.WA_TOKEN}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         }
       });

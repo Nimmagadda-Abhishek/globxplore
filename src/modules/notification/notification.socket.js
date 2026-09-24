@@ -26,6 +26,12 @@ const sendRealTimeNotification = (userId, notification) => {
   }
 };
 
+const sendRealTimeChatMessage = (userId, message) => {
+  if (io && userId) {
+    io.to(`agent_${userId}`).emit('new_message', message);
+  }
+};
+
 const updateUnreadCount = (userId, count) => {
   if (io && userId) {
     io.to(userId.toString()).emit('unread_count_updated', { unreadCount: count });
@@ -35,5 +41,6 @@ const updateUnreadCount = (userId, count) => {
 module.exports = {
   initNotificationSocket,
   sendRealTimeNotification,
+  sendRealTimeChatMessage,
   updateUnreadCount,
 };

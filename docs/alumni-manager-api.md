@@ -45,6 +45,21 @@ Reject with reason.
 ### `GET /api/alumni-manager/users`
 All alumni users.
 
+### `GET /api/alumni-manager/users/active-counts`
+Returns the total active alumni and students in the CRM. Active means the user's `isActive` field is `true`.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "activeAlumni": 42,
+    "activeStudents": 318,
+    "totalActiveUsers": 360
+  }
+}
+```
+
 ### `PATCH /api/alumni-manager/users/:id/status`
 Activate / suspend.
 
@@ -98,10 +113,109 @@ Revenue summary.
 
 ## 9. Community APIs
 ### `POST /api/alumni-manager/community/announcement`
-Create announcement.
+Create an announcement. Authentication is required.
+
+**Request:**
+```json
+{
+  "banner": "https://example.com/images/mentorship-banner.jpg",
+  "title": "Alumni Mentorship Session",
+  "description": "Applications for the next alumni mentorship session are now open.",
+  "place": "Online",
+  "date": "2026-10-15T10:00:00.000Z"
+}
+```
+
+`title` and `description` are required. `banner`, `place`, and `date` are optional.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "665c1f2a9b1e2d0012345678",
+    "author": "665c1f2a9b1e2d0098765432",
+    "banner": "https://example.com/images/mentorship-banner.jpg",
+    "title": "Alumni Mentorship Session",
+    "description": "Applications for the next alumni mentorship session are now open.",
+    "place": "Online",
+    "date": "2026-10-15T10:00:00.000Z",
+    "content": "Applications for the next alumni mentorship session are now open.",
+    "type": "Announcement",
+    "createdAt": "2026-09-22T10:30:00.000Z"
+  }
+}
+```
+
+### `PATCH /api/alumni-manager/community/announcement/:id`
+Edit an existing announcement. All fields are optional in the request, but the saved announcement must contain both `title` and `description`.
+
+**Request:**
+```json
+{
+  "title": "Updated Alumni Mentorship Session",
+  "description": "The session date and registration details have been updated.",
+  "banner": "https://example.com/images/updated-banner.jpg",
+  "place": "Online",
+  "date": "2026-10-20T10:00:00.000Z"
+}
+```
+
+The endpoint returns `404` when the ID does not belong to an announcement.
 
 ### `GET /api/alumni-manager/community/posts`
-Community feed.
+Returns all community posts, newest first. The author contains `name` and `gxId`.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "665c1f2a9b1e2d0012345678",
+      "author": {
+        "_id": "665c1f2a9b1e2d0098765432",
+        "name": "Alumni Manager",
+        "gxId": "GXALM123456"
+      },
+      "banner": "https://example.com/images/mentorship-banner.jpg",
+      "title": "Alumni Mentorship Session",
+      "description": "Applications for the next alumni mentorship session are now open.",
+      "place": "Online",
+      "date": "2026-10-15T10:00:00.000Z",
+      "content": "Applications for the next alumni mentorship session are now open.",
+      "type": "Announcement",
+      "createdAt": "2026-09-22T10:30:00.000Z"
+    }
+  ]
+}
+```
+
+### Student and Alumni Announcement Feeds
+Manager announcements are available to both portal users through these authenticated endpoints:
+
+`GET /api/student/announcements` (role: `STUDENT`)
+
+`GET /api/alumni/announcements` (role: `ALUMNI` or `ADMIN`)
+
+Both endpoints return the latest announcements in the same format:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "665c1f2a9b1e2d0012345678",
+      "author": {
+        "name": "Alumni Manager",
+        "gxId": "GXALM123456"
+      },
+      "content": "Applications for the next alumni mentorship session are now open.",
+      "type": "Announcement",
+      "createdAt": "2026-09-22T10:30:00.000Z"
+    }
+  ]
+}
+```
 
 
 ## 10. Reports APIs

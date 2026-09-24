@@ -244,11 +244,20 @@ exports.addMessage = async (req, res, next) => {
 
     // 4. Emit Socket.io event
     if (io) {
-      io.to(`student_${student._id}`).emit('new_message', { 
+      const messageEvent = {
         sender: isStudent ? 'student' : 'agent', 
         text: finalContent, 
         timestamp: newMessage.timestamp 
-      });
+      };
+
+      io.to(`student_${student._id}`).emit('new_message', messageEvent);
+
+      if (!isStudent) {
+        io.to(`agent_${newMessage.agentId}`).emit('new_message', {
+          ...messageEvent,
+          studentId: student._id
+        });
+      }
     }
 
     res.status(201).json({ success: true, data: student });
