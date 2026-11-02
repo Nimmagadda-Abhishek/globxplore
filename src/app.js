@@ -12,7 +12,7 @@ app.set('trust proxy', 1);
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: 'https://globxplore-z9wy.onrender.com',
+  origin: 'https://sozo-crm.vercel.app',
   credentials: true,
 }));
 
