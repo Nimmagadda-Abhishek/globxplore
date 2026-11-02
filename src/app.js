@@ -12,7 +12,7 @@ app.set('trust proxy', 1);
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-  origin: 'https://globxplorer-design.vercel.app',
+  origin: 'https://globxplore-z9wy.onrender.com',
   credentials: true,
 }));
 
